@@ -22,6 +22,7 @@ type RegistroAuditoria = RegistroBase & {
 }
 
 type NotificationTone = 'success' | 'info' | 'warning' | 'error'
+type ConnectionStatus = 'checking' | 'online' | 'offline'
 
 type NotificationItem = {
   id: string
@@ -93,6 +94,7 @@ function App() {
   const [lciRegistros, setLciRegistros] = useState<RegistroLciCdb[]>([])
   const [auditoriaRegistros, setAuditoriaRegistros] = useState<RegistroAuditoria[]>([])
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('checking')
   const [page, setPage] = useState(1)
   const [pageSize] = useState(25)
   const [totalRegistros, setTotalRegistros] = useState(0)
@@ -158,10 +160,9 @@ function App() {
       setAuditoriaRegistros(auditoriaPayload.data)
       setTotalRegistros(Number(lciPayload.total ?? lciPayload.data.length))
       setPage(targetPage)
-
-      pushNotification('success', 'D1 conectado', 'Registros carregados da base bigdata_db.')
+      setConnectionStatus('online')
     } catch (error) {
-      pushNotification('error', 'Falha de conexão', error instanceof Error ? error.message : 'Erro inesperado ao carregar dados.')
+      setConnectionStatus('offline')
     } finally {
       setLoading(false)
     }
@@ -298,9 +299,11 @@ function App() {
 
       <header className="hero">
         <p className="chip">Oráculo Financeiro</p>
-        <h1>Oráculo Edge Analytics</h1>
-        <p className="subtitle">CLOUDFLARE D1 + GEMINI LLM</p>
-        <p className="legend">LCI/CDB IPCA+ com gravação direta na base D1 <strong>bigdata_db</strong>.</p>
+        <div className="hero-status-row">
+          <span className={`status-tag ${connectionStatus}`}>
+            {connectionStatus === 'online' ? 'Online' : connectionStatus === 'offline' ? 'Offline' : 'Verificando'}
+          </span>
+        </div>
       </header>
 
       <nav className="tabs" aria-label="Abas principais">

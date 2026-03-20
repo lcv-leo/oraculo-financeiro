@@ -21,6 +21,42 @@
   padding: 1rem 1.2rem;
 }
 
+.hero-status-row {
+  margin-top: 0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.status-tag.online {
+  color: #166534;
+  background: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.28);
+}
+
+.status-tag.offline {
+  color: #991b1b;
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.28);
+}
+
+.status-tag.checking {
+  color: #7c5700;
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.28);
+}
+
 .chip {
   margin: 0;
   width: fit-content;
