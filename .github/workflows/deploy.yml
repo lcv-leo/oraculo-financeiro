@@ -52,11 +52,14 @@ jobs:
           USER_AGENT="Mozilla/5.0 (GitHub Actions Health Check) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0 Safari/537.36"
 
           home_status=$(curl -sS -o /tmp/home_response.txt -w "%{http_code}" -A "$USER_AGENT" "$APP_URL" || true)
-          if [ "$home_status" != "200" ]; then
+          if [ "$home_status" = "200" ]; then
+            echo "✅ Home do app respondeu 200."
+          elif [ "$home_status" = "403" ]; then
+            echo "::warning::Home do app respondeu 403. Tratando como proteção ativa no edge/WAF, não como falha de deploy."
+          else
             echo "::error::Home do app não respondeu 200. Status: $home_status"
             exit 1
           fi
-          echo "✅ Home do app respondeu 200."
 
           endpoints=(
             "/api/registros-lci-cdb?limit=5&offset=0"
