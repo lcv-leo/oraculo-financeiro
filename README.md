@@ -27,9 +27,7 @@ Configuração do binding:
 - binding: `FINANCEIRO_DB`
 - database_name: `financeiro-db`
 
-Substitua no `wrangler.toml`:
-
-- `database_id = "REPLACE_WITH_D1_DATABASE_ID"`
+O `database_id` já está versionado no `wrangler.toml` para a base `financeiro-db`.
 
 ### Script automatizado (Windows/PowerShell)
 
@@ -94,8 +92,15 @@ Secrets necessários no GitHub:
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
+Variable recomendada no GitHub (Actions → Variables):
+
+- `APP_BASE_URL` (ex.: `https://oraculo-financeiro.lcv.app.br`)
+
+> Se `APP_BASE_URL` não estiver definida, o workflow usa fallback para `https://oraculo-financeiro.lcv.app.br`.
+
 Fluxo:
 
 1. Push em `main`
-2. Build do app
+2. Quality gate (lint + build)
 3. Deploy no Cloudflare Pages com branch de destino `production`
+4. Health-check pós deploy dos endpoints da API
