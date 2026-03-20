@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
 
+env:
+  WRANGLER_VERSION: "latest"
+
 concurrency:
   group: deploy-production
   cancel-in-progress: true
@@ -26,7 +29,7 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-      - run: npx --yes wrangler@latest pages deploy dist --project-name oraculo-financeiro --branch production
+      - run: npx wrangler@${WRANGLER_VERSION} pages deploy dist --project-name oraculo-financeiro --branch production
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

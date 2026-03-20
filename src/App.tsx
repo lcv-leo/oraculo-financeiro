@@ -621,29 +621,29 @@ function App() {
           <h2>LCI/LCA: &sim; CDB</h2>
 
           <div className="grid">
-            <label>
+            <label htmlFor="lci-prazo-dias">
               Prazo (Dias corridos)
-              <input type="number" min={1} value={prazoDias} onChange={(e) => setPrazoDias(Number(e.target.value))} />
+              <input id="lci-prazo-dias" name="lciPrazoDias" type="number" min={1} autoComplete="off" inputMode="numeric" value={prazoDias} onChange={(e) => setPrazoDias(Number(e.target.value))} />
             </label>
 
-            <label>
+            <label htmlFor="lci-taxa-cdi">
               Taxa da LCI/LCA (% do CDI)
-              <input type="number" min={1} step={0.1} value={taxaLciLca} onChange={(e) => setTaxaLciLca(Number(e.target.value))} />
+              <input id="lci-taxa-cdi" name="lciTaxaPercentCdi" type="number" min={1} step={0.1} autoComplete="off" inputMode="decimal" value={taxaLciLca} onChange={(e) => setTaxaLciLca(Number(e.target.value))} />
             </label>
 
-            <label>
+            <label htmlFor="lci-aporte">
               Aporte (R$)
-              <input type="number" min={0} value={aporte} onChange={(e) => setAporte(Number(e.target.value))} />
+              <input id="lci-aporte" name="investmentAmount" type="number" min={0} autoComplete="transaction-amount" inputMode="decimal" value={aporte} onChange={(e) => setAporte(Number(e.target.value))} />
             </label>
 
-            <label>
+            <label htmlFor="cdi-atual">
               CDI atual (% a.a.)
-              <input type="number" min={0.01} step={0.01} value={cdiAtual} onChange={(e) => setCdiAtual(Number(e.target.value))} />
+              <input id="cdi-atual" name="currentCdiRate" type="number" min={0.01} step={0.01} autoComplete="off" inputMode="decimal" value={cdiAtual} onChange={(e) => setCdiAtual(Number(e.target.value))} />
             </label>
 
-            <label>
+            <label htmlFor="ipca-projetado">
               IPCA projetado 12m (% a.a.)
-              <input type="number" min={0} step={0.01} value={ipcaProjetado} onChange={(e) => setIpcaProjetado(Number(e.target.value))} />
+              <input id="ipca-projetado" name="projectedIpcaRate" type="number" min={0} step={0.01} autoComplete="off" inputMode="decimal" value={ipcaProjetado} onChange={(e) => setIpcaProjetado(Number(e.target.value))} />
             </label>
           </div>
 
@@ -774,14 +774,14 @@ function App() {
           <h2>Tesouro Direto IPCA+: Marcação a Mercado</h2>
 
           <div className="grid">
-            <label>
+            <label htmlFor="tesouro-taxa-atual">
               Taxa IPCA+ ofertada hoje (% a.a.)
-              <input type="number" min={0.01} step={0.01} value={taxaAtualTesouro} onChange={(e) => setTaxaAtualTesouro(Number(e.target.value))} />
+              <input id="tesouro-taxa-atual" name="currentTesouroRate" type="number" min={0.01} step={0.01} autoComplete="off" inputMode="decimal" value={taxaAtualTesouro} onChange={(e) => setTaxaAtualTesouro(Number(e.target.value))} />
             </label>
 
-            <label>
+            <label htmlFor="tesouro-duration">
               Macaulay Duration estimada (anos)
-              <input type="number" min={0.5} step={0.1} value={durationAnos} onChange={(e) => setDurationAnos(Number(e.target.value))} />
+              <input id="tesouro-duration" name="durationYears" type="number" min={0.5} step={0.1} autoComplete="off" inputMode="decimal" value={durationAnos} onChange={(e) => setDurationAnos(Number(e.target.value))} />
             </label>
           </div>
 
@@ -873,19 +873,19 @@ function App() {
           <h3>Registrar novo lote</h3>
 
           <div className="grid">
-            <label>
+            <label htmlFor="tesouro-data-compra">
               Data da compra
-              <input type="date" value={novoLoteDataCompra} onChange={(e) => setNovoLoteDataCompra(e.target.value)} />
+              <input id="tesouro-data-compra" name="purchaseDate" type="date" autoComplete="off" value={novoLoteDataCompra} onChange={(e) => setNovoLoteDataCompra(e.target.value)} />
             </label>
 
-            <label>
+            <label htmlFor="tesouro-valor-investido">
               Valor investido (R$)
-              <input type="number" min={1} value={novoLoteValor} onChange={(e) => setNovoLoteValor(Number(e.target.value))} />
+              <input id="tesouro-valor-investido" name="investedAmount" type="number" min={1} autoComplete="transaction-amount" inputMode="decimal" value={novoLoteValor} onChange={(e) => setNovoLoteValor(Number(e.target.value))} />
             </label>
 
-            <label>
+            <label htmlFor="tesouro-taxa-contratada">
               Taxa contratada IPCA+ (% a.a.)
-              <input type="number" min={0.01} step={0.01} value={novoLoteTaxa} onChange={(e) => setNovoLoteTaxa(Number(e.target.value))} />
+              <input id="tesouro-taxa-contratada" name="contractedTesouroRate" type="number" min={0.01} step={0.01} autoComplete="off" inputMode="decimal" value={novoLoteTaxa} onChange={(e) => setNovoLoteTaxa(Number(e.target.value))} />
             </label>
           </div>
 
@@ -980,7 +980,10 @@ function App() {
 
         <div className="table-toolbar">
           <input
+            id="records-search"
+            name="recordsSearch"
             type="text"
+            autoComplete="off"
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
             placeholder="Filtrar por data, prazo, CDI ou aporte"
