@@ -5,8 +5,8 @@ Reconstrução do app **Oráculo Edge Analytics** com:
 - Vite + React + TypeScript (versões mais recentes)
 - UI em padrão **Glassmorphism + Material Design 3**
 - 2 abas ativas:
-  - `LCI/CDB IPCA+`
-  - `Auditoria IA`
+  - `LCI/LCA → equivalente em CDB`
+  - `Tesouro Direto IPCA+`
 - Persistência real em **Cloudflare D1** (database: `financeiro-db`)
 - Deploy automático via GitHub Actions
 
@@ -53,13 +53,14 @@ pwsh -ExecutionPolicy Bypass -File ./scripts/setup-d1.ps1 -SkipMigrate
 
 - `GET /api/registros-lci-cdb`
 - `POST /api/registros-lci-cdb`
-- `GET /api/auditorias-ia`
-- `POST /api/auditorias-ia`
+- `GET /api/tesouro-ipca`
+- `POST /api/tesouro-ipca`
+- `DELETE /api/tesouro-ipca?id=...`
 
 Arquivos:
 
 - `functions/api/registros-lci-cdb.ts`
-- `functions/api/auditorias-ia.ts`
+- `functions/api/tesouro-ipca.ts`
 
 ## Desenvolvimento local
 

@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "d1:setup": "pwsh -ExecutionPolicy Bypass -File ./scripts/setup-d1.ps1",
-    "d1:migrate": "npx --yes wrangler@latest d1 execute financeiro-db --remote --file db/001_init.sql"
+    "d1:migrate": "npx --yes wrangler@latest d1 execute financeiro-db --remote --file db/001_init.sql ; npx --yes wrangler@latest d1 execute financeiro-db --remote --file db/002_tesouro_ipca_lotes.sql"
   },
   "dependencies": {
     "react": "^19.2.4",
