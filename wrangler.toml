@@ -1,8 +1,0 @@
-name = "oraculo-financeiro"
-compatibility_date = "2026-03-19"
-pages_build_output_dir = "dist"
-
-[[d1_databases]]
-binding = "BIGDATA_DB"
-database_name = "bigdata_db"
-database_id = "663d45f1-f539-4607-b439-ddaf90affa88"

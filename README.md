@@ -23,15 +23,15 @@ Arquivo de schema:
 
 Configuração do binding:
 
-- `wrangler.toml`
+- `wrangler.json`
 - binding: `BIGDATA_DB`
 - database_name: `bigdata_db`
 
-O `database_id` já está versionado no `wrangler.toml` para a base `bigdata_db`.
+O `database_id` já está versionado no `wrangler.json` para a base `bigdata_db`.
 
 ### Script automatizado (Windows/PowerShell)
 
-Bootstrap completo da D1 `bigdata_db` (criação + atualização do `wrangler.toml` + migração):
+Bootstrap completo da D1 `bigdata_db` (criação + atualização do `wrangler.json` + migração):
 
 ```bash
 npm run d1:setup
@@ -87,7 +87,7 @@ Workflow:
 
 - `.github/workflows/deploy.yml`
 
-O deploy de produção usa `wrangler pages deploy` lendo o `wrangler.toml`, garantindo que o binding D1 `BIGDATA_DB` seja levado junto com a publicação.
+O deploy de produção usa `wrangler pages deploy` lendo o `wrangler.json`, garantindo que o binding D1 `BIGDATA_DB` seja levado junto com a publicação.
 
 Secrets necessários no GitHub:
 

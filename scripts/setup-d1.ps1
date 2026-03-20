@@ -1,6 +1,6 @@
 param(
   [string]$DatabaseName = "bigdata_db",
-  [string]$WranglerTomlPath = "wrangler.toml",
+  [string]$WranglerConfigPath = "wrangler.json",
   [string]$SchemaPath = "db/001_init.sql",
   [switch]$SkipMigrate
 )
@@ -15,8 +15,8 @@ function Write-Ok($Message) {
   Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
-if (-not (Test-Path $WranglerTomlPath)) {
-  throw "Arquivo '$WranglerTomlPath' não encontrado."
+if (-not (Test-Path $WranglerConfigPath)) {
+  throw "Arquivo '$WranglerConfigPath' não encontrado."
 }
 
 if (-not (Test-Path $SchemaPath)) {
@@ -36,14 +36,14 @@ if ($LASTEXITCODE -ne 0) {
   }
 }
 
-$wranglerContent = Get-Content $WranglerTomlPath -Raw
-if ($wranglerContent -match 'database_id\s*=\s*"REPLACE_WITH_D1_DATABASE_ID"') {
+$wranglerContent = Get-Content $WranglerConfigPath -Raw
+if ($wranglerContent -match '"database_id"\s*:\s*"REPLACE_WITH_D1_DATABASE_ID"') {
   Write-Host ""
-  Write-Host "[ATENÇÃO] O database_id ainda está como placeholder em wrangler.toml." -ForegroundColor Yellow
+  Write-Host "[ATENÇÃO] O database_id ainda está como placeholder em wrangler.json." -ForegroundColor Yellow
   Write-Host "Execute manualmente 'npx wrangler d1 create bigdata_db --binding BIGDATA_DB --update-config' e confirme alteração." -ForegroundColor Yellow
 }
 else {
-  Write-Ok "wrangler.toml atualizado com database_id válido."
+  Write-Ok "wrangler.json atualizado com database_id válido."
 }
 
 if (-not $SkipMigrate) {
@@ -59,4 +59,4 @@ Write-Host ""
 Write-Ok "Bootstrap D1 concluído."
 Write-Host "Próximos passos:" -ForegroundColor Yellow
 Write-Host "  1) Confirmar o binding BIGDATA_DB no painel Cloudflare Pages" -ForegroundColor Yellow
-Write-Host "  2) Commitar alteração do wrangler.toml" -ForegroundColor Yellow
+Write-Host "  2) Commitar alteração do wrangler.json" -ForegroundColor Yellow

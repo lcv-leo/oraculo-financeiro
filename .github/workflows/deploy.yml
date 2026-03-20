@@ -33,7 +33,7 @@ jobs:
         run: npm run build
 
       - name: Deploy to Cloudflare Pages (production)
-        run: npx --yes wrangler@latest pages deploy dist --project-name oraculo-financeiro --branch production --config wrangler.toml
+        run: npx --yes wrangler@latest pages deploy dist --project-name oraculo-financeiro --branch production --config wrangler.json
 
       - name: Health-check pós deploy
         shell: bash
