@@ -771,7 +771,7 @@ function App() {
 
       {activeTab === 'tesouro-ipca' && (
         <section className="panel">
-          <h2>Tesouro Direto IPCA+: marcação a mercado</h2>
+          <h2>Tesouro Direto IPCA+: Marcação a Mercado</h2>
 
           <div className="grid">
             <label>
@@ -975,7 +975,7 @@ function App() {
       )}
 
       <footer className="footer-table panel">
-        <h2>Registros D1 (rodapé) — {activeTab === 'lci-lca' ? 'LCI/LCA' : 'Tesouro IPCA+'}</h2>
+        <h2>Registros — {activeTab === 'lci-lca' ? 'LCI/LCA' : 'Tesouro IPCA+'}</h2>
         <p className="legend">Clique em um registro para carregar no frame principal. Use a lixeira para excluir.</p>
 
         <div className="table-toolbar">

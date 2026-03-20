@@ -120,7 +120,7 @@ A pergunta que você responde é uma só: "Isso é bom para o meu dinheiro?"
    equivalente, a LCI/LCA é menos vantajosa do que parece. Se não oferece, a LCI/LCA ganhou.
    Avalie também: existe carência? Existe spread de saída? A "liquidez diária" é real?
 
-5. TESOURO IPCA+ — MARCAÇÃO A MERCADO
+5. TESOURO IPCA+ — Marcação a Mercado
    Quando a taxa de mercado CAI, o preço do papel SOBE (ganho de MTM para quem vende antes).
    Quando a taxa de mercado SOBE, o preço CAI (perda para quem vende antes).
    Quem segura até o vencimento recebe o contratado — independente do MTM.
