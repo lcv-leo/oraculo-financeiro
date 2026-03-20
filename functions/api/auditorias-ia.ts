@@ -40,9 +40,22 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+function getDbOrThrow(env: Env) {
+  const db = env?.FINANCEIRO_DB
+  if (!db || typeof db.prepare !== 'function') {
+    throw new Error(
+      'Binding FINANCEIRO_DB ausente. Configure a D1 financeiro-db no Cloudflare Pages (Production environment).'
+    )
+  }
+
+  return db
+}
+
 export const onRequestGet = async ({ env }: Context) => {
   try {
-    const { results } = await env.FINANCEIRO_DB.prepare(
+    const db = getDbOrThrow(env)
+
+    const { results } = await db.prepare(
       `SELECT
         id,
         created_at AS criadoEm,
@@ -70,6 +83,8 @@ export const onRequestGet = async ({ env }: Context) => {
 
 export const onRequestPost = async ({ env, request }: Context) => {
   try {
+    const db = getDbOrThrow(env)
+
     const payload = (await request.json()) as Partial<RegistroAuditoria>
 
     const observacao = String(payload.observacao ?? '').trim()
@@ -83,7 +98,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
     const id = crypto.randomUUID()
     const criadoEm = new Date().toISOString()
 
-    await env.FINANCEIRO_DB.prepare(
+    await db.prepare(
       `INSERT INTO auditorias_ia (id, created_at, observacao, risco, recomendacao)
        VALUES (?1, ?2, ?3, ?4, ?5)`
     )
