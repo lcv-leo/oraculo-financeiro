@@ -1,0 +1,8 @@
+name = "oraculo-financeiro"
+compatibility_date = "2026-03-19"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "FINANCEIRO_DB"
+database_name = "financeiro-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
