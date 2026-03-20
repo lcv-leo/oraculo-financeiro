@@ -40,8 +40,21 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+function getDbOrThrow(env: Env) {
+  const db = env?.BIGDATA_DB
+  if (!db || typeof db.prepare !== 'function') {
+    throw new Error(
+      'Binding BIGDATA_DB ausente. Configure a D1 bigdata_db no Cloudflare Pages (Production environment).'
+    )
+  }
+
+  return db
+}
+
 export const onRequestGet = async ({ env, request }: Context) => {
   try {
+    const db = getDbOrThrow(env)
+
     const requestUrl = new URL(request.url)
     const limitParam = Number(requestUrl.searchParams.get('limit') ?? 25)
     const offsetParam = Number(requestUrl.searchParams.get('offset') ?? 0)
@@ -49,13 +62,13 @@ export const onRequestGet = async ({ env, request }: Context) => {
     const limit = Number.isFinite(limitParam) ? Math.min(Math.max(Math.trunc(limitParam), 1), 100) : 25
     const offset = Number.isFinite(offsetParam) ? Math.max(Math.trunc(offsetParam), 0) : 0
 
-    const countResult = await env.BIGDATA_DB.prepare(
+    const countResult = await db.prepare(
       'SELECT COUNT(*) AS total FROM lci_cdb_registros'
     ).all()
 
     const total = Number((countResult.results?.[0] as { total?: number } | undefined)?.total ?? 0)
 
-    const { results } = await env.BIGDATA_DB.prepare(
+    const { results } = await db.prepare(
       `SELECT
         id,
         created_at AS criadoEm,
@@ -86,6 +99,8 @@ export const onRequestGet = async ({ env, request }: Context) => {
 
 export const onRequestPost = async ({ env, request }: Context) => {
   try {
+    const db = getDbOrThrow(env)
+
     const payload = (await request.json()) as Partial<RegistroLciCdb>
 
     const prazoDias = Number(payload.prazoDias)
@@ -100,7 +115,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
     const id = crypto.randomUUID()
     const criadoEm = new Date().toISOString()
 
-    await env.BIGDATA_DB.prepare(
+    await db.prepare(
       `INSERT INTO lci_cdb_registros (id, created_at, prazo_dias, taxa_cdi, aporte, rendimento_bruto)
        VALUES (?1, ?2, ?3, ?4, ?5, ?6)`
     )
@@ -134,6 +149,8 @@ export const onRequestPost = async ({ env, request }: Context) => {
 
 export const onRequestDelete = async ({ env, request }: Context) => {
   try {
+    const db = getDbOrThrow(env)
+
     const url = new URL(request.url)
     const id = String(url.searchParams.get('id') ?? '').trim()
 
@@ -141,7 +158,7 @@ export const onRequestDelete = async ({ env, request }: Context) => {
       return jsonResponse({ ok: false, error: 'Parâmetro id é obrigatório para exclusão.' }, 400)
     }
 
-    await env.BIGDATA_DB.prepare('DELETE FROM lci_cdb_registros WHERE id = ?1')
+    await db.prepare('DELETE FROM lci_cdb_registros WHERE id = ?1')
       .bind(id)
       .run()
 
