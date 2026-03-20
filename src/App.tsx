@@ -601,18 +601,18 @@ function App() {
 
       <nav className="tabs" aria-label="Abas principais">
         <button
-          className={activeTab === 'lci-lca' ? 'tab active' : 'tab'}
-          onClick={() => setActiveTab('lci-lca')}
-          type="button"
-        >
-          LCI/LCA → Equivalente CDB
-        </button>
-        <button
           className={activeTab === 'tesouro-ipca' ? 'tab active' : 'tab'}
           onClick={() => setActiveTab('tesouro-ipca')}
           type="button"
         >
           Tesouro Direto IPCA+
+        </button>
+        <button
+          className={activeTab === 'lci-lca' ? 'tab active' : 'tab'}
+          onClick={() => setActiveTab('lci-lca')}
+          type="button"
+        >
+          LCI/LCA → Equivalente CDB
         </button>
       </nav>
 
