@@ -49,7 +49,14 @@ else {
 if (-not $SkipMigrate) {
   Write-Info "Aplicando schema remoto em '$DatabaseName'..."
   & npx --yes wrangler@latest d1 execute $DatabaseName --remote --file $SchemaPath
-  Write-Ok "Schema aplicado com sucesso."
+
+  $extraSchemaPath = "db/002_tesouro_ipca_lotes.sql"
+  if (Test-Path $extraSchemaPath) {
+    Write-Info "Aplicando schema complementar: $extraSchemaPath"
+    & npx --yes wrangler@latest d1 execute $DatabaseName --remote --file $extraSchemaPath
+  }
+
+  Write-Ok "Schemas aplicados com sucesso."
 }
 else {
   Write-Info "Migração ignorada via -SkipMigrate."

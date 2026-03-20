@@ -224,6 +224,16 @@ button.ghost {
   color: #8f1f1f;
 }
 
+.risk.vender {
+  background: rgba(16, 185, 129, 0.2);
+  color: #065f46;
+}
+
+.risk.manter {
+  background: rgba(245, 158, 11, 0.22);
+  color: #7d4a00;
+}
+
 .notifications {
   position: sticky;
   top: 0.8rem;

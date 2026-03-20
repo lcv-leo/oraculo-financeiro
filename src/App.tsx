@@ -1,24 +1,29 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 
-type TabId = 'lci-cdb' | 'auditoria-ia'
+type TabId = 'lci-lca' | 'tesouro-ipca'
 
 type RegistroBase = {
   id: string
   criadoEm: string
 }
 
-type RegistroLciCdb = RegistroBase & {
+type RegistroLciLca = RegistroBase & {
   prazoDias: number
-  taxaCdi: number
+  taxaLciLca: number
   aporte: number
-  rendimentoBruto: number
+  aliquotaIr: number
+  cdbEquivalente: number
 }
 
-type RegistroAuditoria = RegistroBase & {
-  observacao: string
-  risco: 'baixo' | 'medio' | 'alto'
-  recomendacao: string
+type RegistroTesouroIpca = RegistroBase & {
+  dataCompra: string
+  valorInvestido: number
+  taxaContratada: number
+  taxaAtual: number
+  diasParaMenorIr: number
+  sinal: 'vender' | 'manter'
+  analise: string
 }
 
 type NotificationTone = 'success' | 'info' | 'warning' | 'error'
@@ -44,6 +49,12 @@ type ApiCreateResponse<T> = {
   data: T
 }
 
+type LoteTesouroForm = {
+  dataCompra: string
+  valorInvestido: number
+  taxaContratada: number
+}
+
 async function parseApiError(response: Response) {
   try {
     const payload = await response.json() as { error?: string }
@@ -53,73 +64,166 @@ async function parseApiError(response: Response) {
   }
 }
 
-function calcularRendimentoBruto(aporte: number, taxaCdi: number, prazoDias: number) {
-  const taxaAnual = (taxaCdi / 100) * 0.1325
-  const periodo = prazoDias / 365
-  return aporte * taxaAnual * periodo
+function calcularAliquotaIr(prazoDias: number) {
+  if (prazoDias <= 180) return 22.5
+  if (prazoDias <= 360) return 20
+  if (prazoDias <= 720) return 17.5
+  return 15
 }
 
-function gerarAuditoria(valor: number, prazoDias: number): Pick<RegistroAuditoria, 'risco' | 'recomendacao'> {
-  if (valor >= 50000 || prazoDias >= 720) {
-    return {
-      risco: 'alto',
-      recomendacao: 'Alta exposição/tempo longo. Revisar liquidez e concentração antes de confirmar.'
-    }
-  }
+function calcularCdbEquivalente(taxaLciLca: number, aliquotaIr: number) {
+  const fatorLiquidoCdb = 1 - (aliquotaIr / 100)
+  if (fatorLiquidoCdb <= 0) return 0
+  return taxaLciLca / fatorLiquidoCdb
+}
 
-  if (valor >= 15000 || prazoDias >= 365) {
+function calcularDiasParaMenorIr(dataCompra: string) {
+  const compra = new Date(dataCompra)
+  const hoje = new Date()
+
+  const diff = Math.floor((hoje.getTime() - compra.getTime()) / (1000 * 60 * 60 * 24))
+  return Math.max(0, 720 - Math.max(0, diff))
+}
+
+function calcularMarcacaoMercado(valor: number, taxaContratada: number, taxaAtual: number, durationAnos: number) {
+  const delta = (taxaContratada - taxaAtual) / 100
+  const variacaoPercentual = durationAnos * delta
+  return valor * variacaoPercentual
+}
+
+function calcularMediaPonderadaTaxa(lotes: LoteTesouroForm[]) {
+  const total = lotes.reduce((sum, lote) => sum + lote.valorInvestido, 0)
+  if (total <= 0) return 0
+  return lotes.reduce((sum, lote) => sum + (lote.taxaContratada * lote.valorInvestido), 0) / total
+}
+
+function calcularDataMediaPonderada(lotes: LoteTesouroForm[]) {
+  const total = lotes.reduce((sum, lote) => sum + lote.valorInvestido, 0)
+  if (total <= 0) return ''
+
+  const mediaEpoch = lotes.reduce((sum, lote) => {
+    const epoch = new Date(lote.dataCompra).getTime()
+    return sum + (epoch * lote.valorInvestido)
+  }, 0) / total
+
+  return new Date(mediaEpoch).toISOString().slice(0, 10)
+}
+
+function decidirVenda(mediaTaxaContratada: number, taxaAtual: number, diasParaMenorIr: number) {
+  if (taxaAtual < mediaTaxaContratada && diasParaMenorIr <= 60) {
     return {
-      risco: 'medio',
-      recomendacao: 'Perfil intermediário. Avaliar alocação em mais de um vencimento para reduzir risco.'
+      recomendacaoCurta: 'vender' as const,
+      texto: 'Taxa de mercado caiu e falta pouco para menor IR. Janela favorável para venda antecipada.'
     }
   }
 
   return {
-    risco: 'baixo',
-    recomendacao: 'Perfil conservador para o cenário informado. Manter acompanhamento periódico.'
+    recomendacaoCurta: 'manter' as const,
+    texto: 'Manter posição por enquanto. Reavaliar após mudança de taxa de mercado ou aproximação do IR mínimo.'
   }
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<TabId>('lci-cdb')
+  const [activeTab, setActiveTab] = useState<TabId>('lci-lca')
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedRegistroId, setSelectedRegistroId] = useState<string | null>(null)
   const [deleteModalId, setDeleteModalId] = useState<string | null>(null)
 
   const [prazoDias, setPrazoDias] = useState(365)
-  const [taxaCdi, setTaxaCdi] = useState(100)
+  const [taxaLciLca, setTaxaLciLca] = useState(90)
   const [aporte, setAporte] = useState(10000)
+  const [taxaAtualTesouro, setTaxaAtualTesouro] = useState(7)
+  const [durationAnos, setDurationAnos] = useState(5)
 
-  const [lciRegistros, setLciRegistros] = useState<RegistroLciCdb[]>([])
-  const [auditoriaRegistros, setAuditoriaRegistros] = useState<RegistroAuditoria[]>([])
+  const [novoLoteDataCompra, setNovoLoteDataCompra] = useState(new Date().toISOString().slice(0, 10))
+  const [novoLoteValor, setNovoLoteValor] = useState(1000)
+  const [novoLoteTaxa, setNovoLoteTaxa] = useState(6)
+
+  const [lciRegistros, setLciRegistros] = useState<RegistroLciLca[]>([])
+  const [tesouroRegistros, setTesouroRegistros] = useState<RegistroTesouroIpca[]>([])
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('checking')
   const [page, setPage] = useState(1)
   const [pageSize] = useState(25)
   const [totalRegistros, setTotalRegistros] = useState(0)
 
-  const rendimentoBruto = useMemo(
-    () => calcularRendimentoBruto(aporte, taxaCdi, prazoDias),
-    [aporte, taxaCdi, prazoDias]
+  const aliquotaIr = useMemo(() => calcularAliquotaIr(prazoDias), [prazoDias])
+  const cdbEquivalente = useMemo(() => calcularCdbEquivalente(taxaLciLca, aliquotaIr), [taxaLciLca, aliquotaIr])
+
+  const lotesTesouroForm = useMemo<LoteTesouroForm[]>(() => (
+    tesouroRegistros.map((r) => ({
+      dataCompra: r.dataCompra,
+      valorInvestido: r.valorInvestido,
+      taxaContratada: r.taxaContratada
+    }))
+  ), [tesouroRegistros])
+
+  const totalInvestidoTesouro = useMemo(
+    () => lotesTesouroForm.reduce((sum, l) => sum + l.valorInvestido, 0),
+    [lotesTesouroForm]
+  )
+
+  const taxaMediaTesouro = useMemo(
+    () => calcularMediaPonderadaTaxa(lotesTesouroForm),
+    [lotesTesouroForm]
+  )
+
+  const dataMediaTesouro = useMemo(
+    () => calcularDataMediaPonderada(lotesTesouroForm),
+    [lotesTesouroForm]
+  )
+
+  const diasMediosParaMenorIr = useMemo(() => {
+    if (tesouroRegistros.length === 0) return 0
+    const total = tesouroRegistros.reduce((sum, l) => sum + l.valorInvestido, 0)
+    if (total <= 0) return 0
+    const ponderado = tesouroRegistros.reduce((sum, l) => sum + (l.diasParaMenorIr * l.valorInvestido), 0)
+    return Math.round(ponderado / total)
+  }, [tesouroRegistros])
+
+  const mtmEstimado = useMemo(
+    () => calcularMarcacaoMercado(totalInvestidoTesouro, taxaMediaTesouro, taxaAtualTesouro, durationAnos),
+    [totalInvestidoTesouro, taxaMediaTesouro, taxaAtualTesouro, durationAnos]
+  )
+
+  const decisaoTesouro = useMemo(
+    () => decidirVenda(taxaMediaTesouro, taxaAtualTesouro, diasMediosParaMenorIr),
+    [taxaMediaTesouro, taxaAtualTesouro, diasMediosParaMenorIr]
   )
 
   const registrosFiltrados = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
     if (!term) {
-      return lciRegistros
+      return activeTab === 'lci-lca' ? lciRegistros : tesouroRegistros
     }
 
-    return lciRegistros.filter((registro) => {
+    if (activeTab === 'lci-lca') {
+      return lciRegistros.filter((registro) => {
+        const dataHora = new Date(registro.criadoEm).toLocaleString('pt-BR').toLowerCase()
+        return (
+          dataHora.includes(term)
+          || String(registro.prazoDias).includes(term)
+          || String(registro.taxaLciLca).includes(term)
+          || String(registro.aporte).includes(term)
+          || String(registro.cdbEquivalente).includes(term)
+        )
+      })
+    }
+
+    return tesouroRegistros.filter((registro) => {
       const dataHora = new Date(registro.criadoEm).toLocaleString('pt-BR').toLowerCase()
       return (
         dataHora.includes(term)
-        || String(registro.prazoDias).includes(term)
-        || String(registro.taxaCdi).includes(term)
-        || String(registro.aporte).includes(term)
+        || registro.dataCompra.includes(term)
+        || String(registro.valorInvestido).includes(term)
+        || String(registro.taxaContratada).includes(term)
+        || String(registro.taxaAtual).includes(term)
+        || registro.sinal.includes(term)
+        || registro.analise.toLowerCase().includes(term)
       )
     })
-  }, [lciRegistros, searchTerm])
+  }, [activeTab, lciRegistros, tesouroRegistros, searchTerm])
 
   const pushNotification = (tone: NotificationTone, title: string, message: string) => {
     const item: NotificationItem = {
@@ -140,28 +244,28 @@ function App() {
 
     try {
       const offset = (targetPage - 1) * pageSize
-      const [lciResponse, auditoriaResponse] = await Promise.all([
+      const [lciResponse, tesouroResponse] = await Promise.all([
         fetch(`/api/registros-lci-cdb?limit=${pageSize}&offset=${offset}`),
-        fetch('/api/auditorias-ia')
+        fetch('/api/tesouro-ipca')
       ])
 
       if (!lciResponse.ok) {
         throw new Error(`Falha ao carregar LCI/CDB: ${await parseApiError(lciResponse)}`)
       }
 
-      if (!auditoriaResponse.ok) {
-        throw new Error(`Falha ao carregar auditorias: ${await parseApiError(auditoriaResponse)}`)
+      if (!tesouroResponse.ok) {
+        throw new Error(`Falha ao carregar tesouro: ${await parseApiError(tesouroResponse)}`)
       }
 
-      const lciPayload = await lciResponse.json() as ApiListResponse<RegistroLciCdb>
-      const auditoriaPayload = await auditoriaResponse.json() as ApiListResponse<RegistroAuditoria>
+      const lciPayload = await lciResponse.json() as ApiListResponse<RegistroLciLca>
+      const tesouroPayload = await tesouroResponse.json() as ApiListResponse<RegistroTesouroIpca>
 
       setLciRegistros(lciPayload.data)
-      setAuditoriaRegistros(auditoriaPayload.data)
+      setTesouroRegistros(tesouroPayload.data)
       setTotalRegistros(Number(lciPayload.total ?? lciPayload.data.length))
       setPage(targetPage)
       setConnectionStatus('online')
-    } catch (error) {
+    } catch {
       setConnectionStatus('offline')
     } finally {
       setLoading(false)
@@ -173,17 +277,18 @@ function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const handleSalvarLci = async () => {
-    const novoRegistro: RegistroLciCdb = {
+  const handleSalvarLciLca = async () => {
+    const novoRegistro: RegistroLciLca = {
       id: crypto.randomUUID(),
       criadoEm: new Date().toISOString(),
       prazoDias,
-      taxaCdi,
+      taxaLciLca,
       aporte,
-      rendimentoBruto
+      aliquotaIr,
+      cdbEquivalente
     }
 
-    if (prazoDias <= 0 || taxaCdi <= 0 || aporte <= 0) {
+    if (prazoDias <= 0 || taxaLciLca <= 0 || aporte <= 0) {
       pushNotification('warning', 'Parâmetros inválidos', 'Informe prazo, taxa e aporte com valores positivos.')
       return
     }
@@ -203,7 +308,7 @@ function App() {
         throw new Error(await parseApiError(response))
       }
 
-      const payload = await response.json() as ApiCreateResponse<RegistroLciCdb>
+      const payload = await response.json() as ApiCreateResponse<RegistroLciLca>
       setLciRegistros((previous) => [payload.data, ...previous].slice(0, pageSize))
       setTotalRegistros((previous) => previous + 1)
       pushNotification('success', 'Registro salvo', 'Dados gravados com sucesso no D1 bigdata_db.')
@@ -214,21 +319,59 @@ function App() {
     }
   }
 
-  const handleAuditarIa = async () => {
-    const analise = gerarAuditoria(aporte, prazoDias)
+  const handleSalvarLoteTesouro = async () => {
+    if (!novoLoteDataCompra || novoLoteValor <= 0 || novoLoteTaxa <= 0 || taxaAtualTesouro <= 0) {
+      pushNotification('warning', 'Parâmetros inválidos', 'Preencha data, valor e taxas válidas para o lote.')
+      return
+    }
 
-    const novoRegistro: RegistroAuditoria = {
+    const diasParaMenorIr = calcularDiasParaMenorIr(novoLoteDataCompra)
+
+    const lotesComNovo = [
+      ...lotesTesouroForm,
+      {
+        dataCompra: novoLoteDataCompra,
+        valorInvestido: novoLoteValor,
+        taxaContratada: novoLoteTaxa
+      }
+    ]
+
+    const taxaMediaComNovo = calcularMediaPonderadaTaxa(lotesComNovo)
+    const dataMediaComNovo = calcularDataMediaPonderada(lotesComNovo)
+    const totalComNovo = lotesComNovo.reduce((sum, l) => sum + l.valorInvestido, 0)
+    const diasMediosComNovo = Math.round(
+      ([...tesouroRegistros, {
+        id: 'temp',
+        criadoEm: new Date().toISOString(),
+        dataCompra: novoLoteDataCompra,
+        valorInvestido: novoLoteValor,
+        taxaContratada: novoLoteTaxa,
+        taxaAtual: taxaAtualTesouro,
+        diasParaMenorIr,
+        sinal: 'manter' as const,
+        analise: ''
+      }] as RegistroTesouroIpca[])
+        .reduce((sum, l) => sum + (l.diasParaMenorIr * l.valorInvestido), 0) / totalComNovo
+    )
+
+    const decisao = decidirVenda(taxaMediaComNovo, taxaAtualTesouro, diasMediosComNovo)
+
+    const novoRegistro: RegistroTesouroIpca = {
       id: crypto.randomUUID(),
       criadoEm: new Date().toISOString(),
-      observacao: `Simulação com aporte R$ ${aporte.toFixed(2)} e prazo ${prazoDias} dias`,
-      risco: analise.risco,
-      recomendacao: analise.recomendacao
+      dataCompra: novoLoteDataCompra,
+      valorInvestido: novoLoteValor,
+      taxaContratada: novoLoteTaxa,
+      taxaAtual: taxaAtualTesouro,
+      diasParaMenorIr,
+      sinal: decisao.recomendacaoCurta,
+      analise: `Média compra: ${dataMediaComNovo} | Taxa média: ${taxaMediaComNovo.toFixed(2)}% | ${decisao.texto}`
     }
 
     setLoading(true)
 
     try {
-      const response = await fetch('/api/auditorias-ia', {
+      const response = await fetch('/api/tesouro-ipca', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -240,27 +383,37 @@ function App() {
         throw new Error(await parseApiError(response))
       }
 
-      const payload = await response.json() as ApiCreateResponse<RegistroAuditoria>
-      setAuditoriaRegistros((previous) => [payload.data, ...previous].slice(0, 25))
-      pushNotification('info', 'Auditoria gerada', `Risco classificado como ${payload.data.risco.toUpperCase()}.`)
-      setActiveTab('auditoria-ia')
+      const payload = await response.json() as ApiCreateResponse<RegistroTesouroIpca>
+      setTesouroRegistros((previous) => [payload.data, ...previous].slice(0, 200))
+      pushNotification('info', 'Lote salvo', `Recomendação atual: ${payload.data.sinal.toUpperCase()}.`)
+      setActiveTab('tesouro-ipca')
     } catch (error) {
-      pushNotification('error', 'Erro de auditoria', error instanceof Error ? error.message : 'Falha ao gravar auditoria no D1.')
+      pushNotification('error', 'Erro no Tesouro', error instanceof Error ? error.message : 'Falha ao gravar lote no D1.')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleCarregarNoFrame = (registro: RegistroLciCdb) => {
+  const handleCarregarNoFrameLci = (registro: RegistroLciLca) => {
     setPrazoDias(registro.prazoDias)
-    setTaxaCdi(registro.taxaCdi)
+    setTaxaLciLca(registro.taxaLciLca)
     setAporte(registro.aporte)
     setSelectedRegistroId(registro.id)
-    setActiveTab('lci-cdb')
+    setActiveTab('lci-lca')
     pushNotification('info', 'Registro carregado', 'Parâmetros aplicados no frame principal.')
   }
 
-  const handleExcluirRegistro = async (id: string) => {
+  const handleCarregarNoFrameTesouro = (registro: RegistroTesouroIpca) => {
+    setNovoLoteDataCompra(registro.dataCompra)
+    setNovoLoteValor(registro.valorInvestido)
+    setNovoLoteTaxa(registro.taxaContratada)
+    setTaxaAtualTesouro(registro.taxaAtual)
+    setSelectedRegistroId(registro.id)
+    setActiveTab('tesouro-ipca')
+    pushNotification('info', 'Lote carregado', 'Parâmetros do lote aplicados no módulo Tesouro IPCA+.')
+  }
+
+  const handleExcluirRegistroLci = async (id: string) => {
     setLoading(true)
 
     try {
@@ -280,6 +433,31 @@ function App() {
       pushNotification('success', 'Registro excluído', 'Item removido com sucesso da bigdata_db.')
     } catch (error) {
       pushNotification('error', 'Falha na exclusão', error instanceof Error ? error.message : 'Erro ao excluir registro.')
+    } finally {
+      setLoading(false)
+      setDeleteModalId(null)
+    }
+  }
+
+  const handleExcluirRegistroTesouro = async (id: string) => {
+    setLoading(true)
+
+    try {
+      const response = await fetch(`/api/tesouro-ipca?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        throw new Error(await parseApiError(response))
+      }
+
+      setTesouroRegistros((previous) => previous.filter((item) => item.id !== id))
+      if (selectedRegistroId === id) {
+        setSelectedRegistroId(null)
+      }
+      pushNotification('success', 'Lote excluído', 'Lote removido com sucesso da bigdata_db.')
+    } catch (error) {
+      pushNotification('error', 'Falha na exclusão', error instanceof Error ? error.message : 'Erro ao excluir lote.')
     } finally {
       setLoading(false)
       setDeleteModalId(null)
@@ -308,24 +486,24 @@ function App() {
 
       <nav className="tabs" aria-label="Abas principais">
         <button
-          className={activeTab === 'lci-cdb' ? 'tab active' : 'tab'}
-          onClick={() => setActiveTab('lci-cdb')}
+          className={activeTab === 'lci-lca' ? 'tab active' : 'tab'}
+          onClick={() => setActiveTab('lci-lca')}
           type="button"
         >
-          LCI/CDB IPCA+
+          LCI/LCA → Equivalente CDB
         </button>
         <button
-          className={activeTab === 'auditoria-ia' ? 'tab active' : 'tab'}
-          onClick={() => setActiveTab('auditoria-ia')}
+          className={activeTab === 'tesouro-ipca' ? 'tab active' : 'tab'}
+          onClick={() => setActiveTab('tesouro-ipca')}
           type="button"
         >
-          Auditoria IA
+          Tesouro Direto IPCA+
         </button>
       </nav>
 
-      {activeTab === 'lci-cdb' && (
+      {activeTab === 'lci-lca' && (
         <section className="panel">
-          <h2>Variáveis de Entrada</h2>
+          <h2>LCI/LCA: equivalência em CDB</h2>
 
           <div className="grid">
             <label>
@@ -334,8 +512,8 @@ function App() {
             </label>
 
             <label>
-              Taxa Isenta Ofertada (% do CDI)
-              <input type="number" min={1} value={taxaCdi} onChange={(e) => setTaxaCdi(Number(e.target.value))} />
+              Taxa da LCI/LCA (% do CDI)
+              <input type="number" min={1} value={taxaLciLca} onChange={(e) => setTaxaLciLca(Number(e.target.value))} />
             </label>
 
             <label>
@@ -345,18 +523,18 @@ function App() {
           </div>
 
           <article className="result">
-            <h3>Matemática Pura</h3>
-            <p>Rendimento bruto estimado: <strong>R$ {rendimentoBruto.toFixed(2)}</strong></p>
+            <h3>Resultado de Equivalência</h3>
+            <p>Alíquota de IR do CDB no prazo: <strong>{aliquotaIr.toFixed(1)}%</strong></p>
+            <p>CDB equivalente para igualar a LCI/LCA: <strong>{cdbEquivalente.toFixed(2)}% do CDI</strong></p>
           </article>
 
           <div className="actions">
-            <button onClick={handleSalvarLci} type="button">Salvar DB</button>
-            <button onClick={handleAuditarIa} type="button" className="secondary">Auditoria IA</button>
+            <button onClick={handleSalvarLciLca} type="button">Salvar DB</button>
             <button onClick={() => void carregarRegistros()} type="button" className="ghost">Recarregar do D1</button>
           </div>
 
           <div className="records">
-            <h3>Registros D1 (LCI/CDB)</h3>
+            <h3>Registros D1 (LCI/LCA)</h3>
             {loading && lciRegistros.length === 0 ? (
               <p>Carregando dados do D1...</p>
             ) : lciRegistros.length === 0 ? (
@@ -367,9 +545,9 @@ function App() {
                   <li key={registro.id}>
                     <span>{new Date(registro.criadoEm).toLocaleString('pt-BR')}</span>
                     <span>Prazo: {registro.prazoDias}d</span>
-                    <span>CDI: {registro.taxaCdi}%</span>
+                    <span>LCI/LCA: {registro.taxaLciLca}% CDI</span>
                     <span>Aporte: R$ {registro.aporte.toFixed(2)}</span>
-                    <strong>Rendimento: R$ {registro.rendimentoBruto.toFixed(2)}</strong>
+                    <strong>Eq. CDB: {registro.cdbEquivalente.toFixed(2)}% CDI</strong>
                   </li>
                 ))}
               </ul>
@@ -378,26 +556,71 @@ function App() {
         </section>
       )}
 
-      {activeTab === 'auditoria-ia' && (
+      {activeTab === 'tesouro-ipca' && (
         <section className="panel">
-          <h2>Auditoria IA</h2>
-          <p>Análises registradas em tempo real no D1.</p>
+          <h2>Tesouro Direto IPCA+: marcação a mercado</h2>
+
+          <div className="grid">
+            <label>
+              Taxa IPCA+ ofertada hoje (% a.a.)
+              <input type="number" min={0.01} step={0.01} value={taxaAtualTesouro} onChange={(e) => setTaxaAtualTesouro(Number(e.target.value))} />
+            </label>
+
+            <label>
+              Duration média estimada (anos)
+              <input type="number" min={1} step={0.1} value={durationAnos} onChange={(e) => setDurationAnos(Number(e.target.value))} />
+            </label>
+          </div>
+
+          <article className="result">
+            <h3>Resumo da Carteira de Lotes</h3>
+            <p>Total investido: <strong>R$ {totalInvestidoTesouro.toFixed(2)}</strong></p>
+            <p>Taxa média contratada (ponderada): <strong>{taxaMediaTesouro.toFixed(2)}% a.a.</strong></p>
+            <p>Data média de compra (ponderada): <strong>{dataMediaTesouro || '—'}</strong></p>
+            <p>Marcação a mercado estimada: <strong>R$ {mtmEstimado.toFixed(2)}</strong></p>
+            <p>Dias médios para menor IR (15%): <strong>{diasMediosParaMenorIr}</strong></p>
+            <p>
+              Sinal atual: <strong>{decisaoTesouro.recomendacaoCurta.toUpperCase()}</strong> — {decisaoTesouro.texto}
+            </p>
+          </article>
+
+          <h3>Novo Lote</h3>
+
+          <div className="grid">
+            <label>
+              Data da compra
+              <input type="date" value={novoLoteDataCompra} onChange={(e) => setNovoLoteDataCompra(e.target.value)} />
+            </label>
+
+            <label>
+              Valor investido (R$)
+              <input type="number" min={1} value={novoLoteValor} onChange={(e) => setNovoLoteValor(Number(e.target.value))} />
+            </label>
+
+            <label>
+              Taxa contratada (% a.a.)
+              <input type="number" min={0.01} step={0.01} value={novoLoteTaxa} onChange={(e) => setNovoLoteTaxa(Number(e.target.value))} />
+            </label>
+          </div>
 
           <div className="actions">
-            <button onClick={handleAuditarIa} type="button">Gerar nova auditoria</button>
+            <button onClick={handleSalvarLoteTesouro} type="button">Salvar lote no D1</button>
+            <button onClick={() => void carregarRegistros()} type="button" className="ghost">Recarregar do D1</button>
           </div>
 
           <div className="records">
-            {auditoriaRegistros.length === 0 ? (
-              <p>Nenhuma auditoria registrada ainda.</p>
+            {tesouroRegistros.length === 0 ? (
+              <p>Nenhum lote registrado ainda.</p>
             ) : (
               <ul>
-                {auditoriaRegistros.map((registro) => (
+                {tesouroRegistros.map((registro) => (
                   <li key={registro.id}>
                     <span>{new Date(registro.criadoEm).toLocaleString('pt-BR')}</span>
-                    <span>{registro.observacao}</span>
-                    <span className={`risk ${registro.risco}`}>Risco: {registro.risco}</span>
-                    <strong>{registro.recomendacao}</strong>
+                    <span>Compra: {registro.dataCompra}</span>
+                    <span>Valor: R$ {registro.valorInvestido.toFixed(2)}</span>
+                    <span>Taxa comprada: {registro.taxaContratada.toFixed(2)}% | Taxa atual: {registro.taxaAtual.toFixed(2)}%</span>
+                    <span className={`risk ${registro.sinal}`}>Sinal: {registro.sinal}</span>
+                    <strong>{registro.analise}</strong>
                   </li>
                 ))}
               </ul>
@@ -407,7 +630,7 @@ function App() {
       )}
 
       <footer className="footer-table panel">
-        <h2>Registros D1 (rodapé)</h2>
+        <h2>Registros D1 (rodapé) — {activeTab === 'lci-lca' ? 'LCI/LCA' : 'Tesouro IPCA+'}</h2>
         <p className="legend">Clique em um registro para carregar no frame principal. Use a lixeira para excluir.</p>
 
         <div className="table-toolbar">
@@ -427,9 +650,19 @@ function App() {
               <tr>
                 <th>Data</th>
                 <th>Hora</th>
-                <th>Prazo</th>
-                <th>% CDI</th>
-                <th>Aporte</th>
+                {activeTab === 'lci-lca' ? (
+                  <>
+                    <th>Prazo</th>
+                    <th>LCI/LCA (% CDI)</th>
+                    <th>Eq. CDB</th>
+                  </>
+                ) : (
+                  <>
+                    <th>Compra</th>
+                    <th>Taxa Contratada</th>
+                    <th>Taxa Atual</th>
+                  </>
+                )}
                 <th>Excluir</th>
               </tr>
             </thead>
@@ -440,21 +673,37 @@ function App() {
                 </tr>
               ) : (
                 registrosFiltrados.map((registro) => {
-                  const date = new Date(registro.criadoEm)
+                  const date = new Date((registro as RegistroBase).criadoEm)
                   const data = date.toLocaleDateString('pt-BR')
                   const hora = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
                   return (
                     <tr
-                      key={registro.id}
-                      onClick={() => handleCarregarNoFrame(registro)}
-                      className={selectedRegistroId === registro.id ? 'clickable-row selected-row' : 'clickable-row'}
+                      key={(registro as RegistroBase).id}
+                      onClick={() => {
+                        if (activeTab === 'lci-lca') {
+                          handleCarregarNoFrameLci(registro as RegistroLciLca)
+                        } else {
+                          handleCarregarNoFrameTesouro(registro as RegistroTesouroIpca)
+                        }
+                      }}
+                      className={selectedRegistroId === (registro as RegistroBase).id ? 'clickable-row selected-row' : 'clickable-row'}
                     >
                       <td>{data}</td>
                       <td>{hora}</td>
-                      <td>{registro.prazoDias}d</td>
-                      <td>{registro.taxaCdi}%</td>
-                      <td>R$ {registro.aporte.toFixed(2)}</td>
+                      {activeTab === 'lci-lca' ? (
+                        <>
+                          <td>{(registro as RegistroLciLca).prazoDias}d</td>
+                          <td>{(registro as RegistroLciLca).taxaLciLca.toFixed(2)}%</td>
+                          <td>{(registro as RegistroLciLca).cdbEquivalente.toFixed(2)}%</td>
+                        </>
+                      ) : (
+                        <>
+                          <td>{(registro as RegistroTesouroIpca).dataCompra}</td>
+                          <td>{(registro as RegistroTesouroIpca).taxaContratada.toFixed(2)}%</td>
+                          <td>{(registro as RegistroTesouroIpca).taxaAtual.toFixed(2)}%</td>
+                        </>
+                      )}
                       <td>
                         <button
                           type="button"
@@ -463,7 +712,7 @@ function App() {
                           aria-label="Excluir registro"
                           onClick={(event) => {
                             event.stopPropagation()
-                            setDeleteModalId(registro.id)
+                            setDeleteModalId((registro as RegistroBase).id)
                           }}
                         >
                           🗑️
@@ -507,7 +756,18 @@ function App() {
             <p>Essa ação remove o item da base bigdata_db e não pode ser desfeita.</p>
             <div className="modal-actions">
               <button type="button" className="ghost" onClick={() => setDeleteModalId(null)}>Cancelar</button>
-              <button type="button" onClick={() => void handleExcluirRegistro(deleteModalId)}>Excluir</button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (activeTab === 'lci-lca') {
+                    void handleExcluirRegistroLci(deleteModalId)
+                  } else {
+                    void handleExcluirRegistroTesouro(deleteModalId)
+                  }
+                }}
+              >
+                Excluir
+              </button>
             </div>
           </div>
         </div>

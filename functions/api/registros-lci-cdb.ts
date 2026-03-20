@@ -25,9 +25,10 @@ type RegistroLciCdb = {
   id: string
   criadoEm: string
   prazoDias: number
-  taxaCdi: number
+  taxaLciLca: number
   aporte: number
-  rendimentoBruto: number
+  aliquotaIr: number
+  cdbEquivalente: number
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -73,9 +74,15 @@ export const onRequestGet = async ({ env, request }: Context) => {
         id,
         created_at AS criadoEm,
         prazo_dias AS prazoDias,
-        taxa_cdi AS taxaCdi,
+        taxa_cdi AS taxaLciLca,
         aporte,
-        rendimento_bruto AS rendimentoBruto
+        CASE
+          WHEN prazo_dias <= 180 THEN 22.5
+          WHEN prazo_dias <= 360 THEN 20
+          WHEN prazo_dias <= 720 THEN 17.5
+          ELSE 15
+        END AS aliquotaIr,
+        rendimento_bruto AS cdbEquivalente
        FROM lci_cdb_registros
        ORDER BY datetime(created_at) DESC
        LIMIT ?1 OFFSET ?2`
@@ -104,11 +111,11 @@ export const onRequestPost = async ({ env, request }: Context) => {
     const payload = (await request.json()) as Partial<RegistroLciCdb>
 
     const prazoDias = Number(payload.prazoDias)
-    const taxaCdi = Number(payload.taxaCdi)
+    const taxaLciLca = Number(payload.taxaLciLca)
     const aporte = Number(payload.aporte)
-    const rendimentoBruto = Number(payload.rendimentoBruto)
+    const cdbEquivalente = Number(payload.cdbEquivalente)
 
-    if ([prazoDias, taxaCdi, aporte, rendimentoBruto].some((value) => Number.isNaN(value) || value < 0)) {
+    if ([prazoDias, taxaLciLca, aporte, cdbEquivalente].some((value) => Number.isNaN(value) || value < 0)) {
       return jsonResponse({ ok: false, error: 'Payload inválido para registro LCI/CDB.' }, 400)
     }
 
@@ -119,8 +126,10 @@ export const onRequestPost = async ({ env, request }: Context) => {
       `INSERT INTO lci_cdb_registros (id, created_at, prazo_dias, taxa_cdi, aporte, rendimento_bruto)
        VALUES (?1, ?2, ?3, ?4, ?5, ?6)`
     )
-      .bind(id, criadoEm, prazoDias, taxaCdi, aporte, rendimentoBruto)
+      .bind(id, criadoEm, prazoDias, taxaLciLca, aporte, cdbEquivalente)
       .run()
+
+    const aliquotaIr = prazoDias <= 180 ? 22.5 : prazoDias <= 360 ? 20 : prazoDias <= 720 ? 17.5 : 15
 
     return jsonResponse(
       {
@@ -129,9 +138,10 @@ export const onRequestPost = async ({ env, request }: Context) => {
           id,
           criadoEm,
           prazoDias,
-          taxaCdi,
+          taxaLciLca,
           aporte,
-          rendimentoBruto
+          aliquotaIr,
+          cdbEquivalente
         }
       },
       201
