@@ -476,11 +476,13 @@ function App() {
       </aside>
 
       <header className="hero">
-        <p className="chip">Oráculo Financeiro</p>
-        <div className="hero-status-row">
-          <span className={`status-tag ${connectionStatus}`}>
-            {connectionStatus === 'online' ? 'Online' : connectionStatus === 'offline' ? 'Offline' : 'Verificando'}
-          </span>
+        <div className="hero-top">
+          <div className="brand-panel">
+            <p className="chip">Oráculo Financeiro</p>
+          </div>
+          <div className={`status-square ${connectionStatus}`} aria-live="polite" aria-label="Status de conexão">
+            <span>{connectionStatus === 'online' ? 'Online' : connectionStatus === 'offline' ? 'Offline' : 'Verificando'}</span>
+          </div>
         </div>
       </header>
 

@@ -21,37 +21,56 @@
   padding: 1rem 1.2rem;
 }
 
-.hero-status-row {
-  margin-top: 0.35rem;
+.hero-top {
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+.brand-panel {
+  flex: 1;
+  min-height: 92px;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(96, 88, 133, 0.28);
+  background: rgba(255, 255, 255, 0.72);
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  padding: 0.75rem 0.9rem;
 }
 
-.status-tag {
+.status-square {
+  width: 96px;
+  min-width: 96px;
+  min-height: 92px;
+  border-radius: 0.9rem;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.7rem;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 700;
+  justify-content: center;
+  text-align: center;
+  padding: 0.45rem;
   border: 1px solid transparent;
 }
 
-.status-tag.online {
+.status-square span {
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.status-square.online {
   color: #166534;
   background: rgba(34, 197, 94, 0.16);
   border-color: rgba(34, 197, 94, 0.28);
 }
 
-.status-tag.offline {
+.status-square.offline {
   color: #991b1b;
   background: rgba(239, 68, 68, 0.16);
   border-color: rgba(239, 68, 68, 0.28);
 }
 
-.status-tag.checking {
+.status-square.checking {
   color: #7c5700;
   background: rgba(245, 158, 11, 0.16);
   border-color: rgba(245, 158, 11, 0.28);
@@ -59,16 +78,16 @@
 
 .chip {
   margin: 0;
-  width: fit-content;
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.09em;
-  font-size: 0.75rem;
+  letter-spacing: 0.07em;
+  font-size: 0.92rem;
   font-weight: 700;
   color: #4532a5;
   border: 1px solid rgba(69, 50, 165, 0.28);
-  background: rgba(69, 50, 165, 0.1);
+  background: linear-gradient(135deg, rgba(69, 50, 165, 0.14), rgba(79, 70, 229, 0.1));
 }
 
 .hero h1 {
