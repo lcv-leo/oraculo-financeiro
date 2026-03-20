@@ -1,93 +1,32 @@
-name: Deploy Oráculo Financeiro (Cloudflare Pages)
+name: Deploy
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       deployments: write
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      PROJECT_NAME: oraculo-financeiro
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+      - uses: actions/setup-node@v5
         with:
           node-version: latest
-          check-latest: true
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
+      - run: npm run build
 
-      - name: Build
-        run: npm run build
-
-      - name: Deploy to Cloudflare Pages (production)
-        run: npx --yes wrangler@latest pages deploy dist --project-name "$PROJECT_NAME" --branch production
-
-      - name: Health-check pós deploy
-        shell: bash
-        run: |
-          APP_URL="https://${PROJECT_NAME}.pages.dev"
-
-          echo "Validando API em: $APP_URL"
-
-          USER_AGENT="Mozilla/5.0 (GitHub Actions Health Check) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0 Safari/537.36"
-
-          home_status=$(curl -sS -o /tmp/home_response.txt -w "%{http_code}" -A "$USER_AGENT" "$APP_URL" || true)
-          if [ "$home_status" = "200" ]; then
-            echo "✅ Home do app respondeu 200."
-          elif [ "$home_status" = "403" ]; then
-            echo "::warning::Home do app respondeu 403. Tratando como proteção ativa no edge/WAF, não como falha de deploy."
-          else
-            echo "::error::Home do app não respondeu 200. Status: $home_status"
-            exit 1
-          fi
-
-          endpoints=(
-            "/api/registros-lci-cdb?limit=5&offset=0"
-            "/api/auditorias-ia"
-          )
-
-          for endpoint in "${endpoints[@]}"; do
-            echo "Checando endpoint: $endpoint"
-            ok=0
-
-            for tentativa in {1..12}; do
-              status=$(curl -sS -o /tmp/api_response.txt -w "%{http_code}" -A "$USER_AGENT" -H "Accept: application/json" "$APP_URL$endpoint" || true)
-              response=$(cat /tmp/api_response.txt 2>/dev/null || true)
-
-              if [ "$status" = "200" ] && echo "$response" | grep -Eiq '"ok"\s*:\s*true'; then
-                echo "✅ $endpoint OK (tentativa $tentativa)"
-                ok=1
-                break
-              fi
-
-              if [ "$status" = "403" ]; then
-                echo "::warning::Endpoint $endpoint respondeu 403. Tratando como protegido por edge/WAF, não como falha de deploy."
-                ok=1
-                break
-              fi
-
-              echo "⏳ tentativa $tentativa/12 sem OK para $endpoint (status=$status); aguardando 10s..."
-              sleep 10
-            done
-
-            if [ "$ok" -ne 1 ]; then
-              echo "::error::Falha no health-check do endpoint $endpoint"
-              exit 1
-            fi
-          done
-
-          echo "✅ Health-check pós deploy concluído."
+      - run: npx --yes wrangler@latest pages deploy dist --project-name oraculo-financeiro --branch production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

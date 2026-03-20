@@ -1,5 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
+import {
+  aliquotaIrRegressiva,
+  aliquotaIof,
+  cdbEquivalenteALciLca,
+  rendimentoLiquidoLciLca,
+  rendimentoLiquidoCdb,
+  ganhoRealAnualizado,
+  taxaEfetivaAnualDoPeriodo,
+  classificarLciLca,
+  analisarLote,
+  type AnaliseTesouroLote,
+  gerarSinalTesouro,
+  dataMediaPonderada,
+  mediasPonderadasPorCapital,
+  diasParaMenorIr as calcDiasParaMenorIr,
+} from './lib/finance'
 
 type TabId = 'lci-lca' | 'tesouro-ipca'
 
@@ -55,71 +71,30 @@ type LoteTesouroForm = {
   taxaContratada: number
 }
 
+type AvaliacaoIA = 'bom' | 'regular' | 'ruim'
+type RecomendacaoIA = 'MANTER' | 'VENDER' | 'AGUARDAR' | 'EVITAR'
+
+type AnaliseIA = {
+  avaliacao: AvaliacaoIA
+  titulo: string
+  analise: string
+  numerosChave: {
+    retornoLiquidoEstimado: string
+    ganhoRealAcimaIpca: string
+    comparacaoTesouroSelic: string
+  }
+  recomendacao: RecomendacaoIA
+  timing: string
+  ciladas: string[]
+  resumo: string
+}
+
 async function parseApiError(response: Response) {
   try {
     const payload = await response.json() as { error?: string }
     return payload.error ?? `HTTP ${response.status}`
   } catch {
     return `HTTP ${response.status}`
-  }
-}
-
-function calcularAliquotaIr(prazoDias: number) {
-  if (prazoDias <= 180) return 22.5
-  if (prazoDias <= 360) return 20
-  if (prazoDias <= 720) return 17.5
-  return 15
-}
-
-function calcularCdbEquivalente(taxaLciLca: number, aliquotaIr: number) {
-  const fatorLiquidoCdb = 1 - (aliquotaIr / 100)
-  if (fatorLiquidoCdb <= 0) return 0
-  return taxaLciLca / fatorLiquidoCdb
-}
-
-function calcularDiasParaMenorIr(dataCompra: string) {
-  const compra = new Date(dataCompra)
-  const hoje = new Date()
-
-  const diff = Math.floor((hoje.getTime() - compra.getTime()) / (1000 * 60 * 60 * 24))
-  return Math.max(0, 720 - Math.max(0, diff))
-}
-
-function calcularMarcacaoMercado(valor: number, taxaContratada: number, taxaAtual: number, durationAnos: number) {
-  const delta = (taxaContratada - taxaAtual) / 100
-  const variacaoPercentual = durationAnos * delta
-  return valor * variacaoPercentual
-}
-
-function calcularMediaPonderadaTaxa(lotes: LoteTesouroForm[]) {
-  const total = lotes.reduce((sum, lote) => sum + lote.valorInvestido, 0)
-  if (total <= 0) return 0
-  return lotes.reduce((sum, lote) => sum + (lote.taxaContratada * lote.valorInvestido), 0) / total
-}
-
-function calcularDataMediaPonderada(lotes: LoteTesouroForm[]) {
-  const total = lotes.reduce((sum, lote) => sum + lote.valorInvestido, 0)
-  if (total <= 0) return ''
-
-  const mediaEpoch = lotes.reduce((sum, lote) => {
-    const epoch = new Date(lote.dataCompra).getTime()
-    return sum + (epoch * lote.valorInvestido)
-  }, 0) / total
-
-  return new Date(mediaEpoch).toISOString().slice(0, 10)
-}
-
-function decidirVenda(mediaTaxaContratada: number, taxaAtual: number, diasParaMenorIr: number) {
-  if (taxaAtual < mediaTaxaContratada && diasParaMenorIr <= 60) {
-    return {
-      recomendacaoCurta: 'vender' as const,
-      texto: 'Taxa de mercado caiu e falta pouco para menor IR. Janela favorável para venda antecipada.'
-    }
-  }
-
-  return {
-    recomendacaoCurta: 'manter' as const,
-    texto: 'Manter posição por enquanto. Reavaliar após mudança de taxa de mercado ou aproximação do IR mínimo.'
   }
 }
 
@@ -135,6 +110,8 @@ function App() {
   const [aporte, setAporte] = useState(10000)
   const [taxaAtualTesouro, setTaxaAtualTesouro] = useState(7)
   const [durationAnos, setDurationAnos] = useState(5)
+  const [cdiAtual, setCdiAtual] = useState(10.65)
+  const [ipcaProjetado, setIpcaProjetado] = useState(4.83)
 
   const [novoLoteDataCompra, setNovoLoteDataCompra] = useState(new Date().toISOString().slice(0, 10))
   const [novoLoteValor, setNovoLoteValor] = useState(1000)
@@ -147,49 +124,123 @@ function App() {
   const [page, setPage] = useState(1)
   const [pageSize] = useState(25)
   const [totalRegistros, setTotalRegistros] = useState(0)
+  const [analisandoIa, setAnalisandoIa] = useState(false)
+  const [analiseIa, setAnaliseIa] = useState<AnaliseIA | null>(null)
 
-  const aliquotaIr = useMemo(() => calcularAliquotaIr(prazoDias), [prazoDias])
-  const cdbEquivalente = useMemo(() => calcularCdbEquivalente(taxaLciLca, aliquotaIr), [taxaLciLca, aliquotaIr])
 
-  const lotesTesouroForm = useMemo<LoteTesouroForm[]>(() => (
-    tesouroRegistros.map((r) => ({
+  // ── LCI/LCA ─────────────────────────────────────────────────────────────
+  const aliquotaIr = useMemo(() => aliquotaIrRegressiva(prazoDias), [prazoDias])
+  const iofPct = useMemo(() => aliquotaIof(prazoDias), [prazoDias])
+  const cdbEquivalente = useMemo(
+    () => cdbEquivalenteALciLca(taxaLciLca, aliquotaIr),
+    [taxaLciLca, aliquotaIr],
+  )
+  const rendLciLiquido = useMemo(
+    () => rendimentoLiquidoLciLca(aporte, cdiAtual, taxaLciLca, prazoDias),
+    [aporte, cdiAtual, taxaLciLca, prazoDias],
+  )
+  const rendCdbLiquido = useMemo(
+    () => rendimentoLiquidoCdb(aporte, cdiAtual, cdbEquivalente, prazoDias),
+    [aporte, cdiAtual, cdbEquivalente, prazoDias],
+  )
+  const rendLciPctAa = useMemo(
+    () => aporte > 0 ? taxaEfetivaAnualDoPeriodo((rendLciLiquido / aporte) * 100, prazoDias) : 0,
+    [rendLciLiquido, aporte, prazoDias],
+  )
+  const ganhoRealLci = useMemo(
+    () => ganhoRealAnualizado(rendLciPctAa, ipcaProjetado),
+    [rendLciPctAa, ipcaProjetado],
+  )
+  const benchmarkLci = useMemo(() => classificarLciLca(taxaLciLca), [taxaLciLca])
+
+  // ── Tesouro IPCA+ ─────────────────────────────────────────────────────────
+  const lotesTesouroForm = useMemo<LoteTesouroForm[]>(
+    () => tesouroRegistros.map((r) => ({
       dataCompra: r.dataCompra,
       valorInvestido: r.valorInvestido,
-      taxaContratada: r.taxaContratada
-    }))
-  ), [tesouroRegistros])
+      taxaContratada: r.taxaContratada,
+    })),
+    [tesouroRegistros],
+  )
 
   const totalInvestidoTesouro = useMemo(
     () => lotesTesouroForm.reduce((sum, l) => sum + l.valorInvestido, 0),
-    [lotesTesouroForm]
+    [lotesTesouroForm],
   )
 
   const taxaMediaTesouro = useMemo(
-    () => calcularMediaPonderadaTaxa(lotesTesouroForm),
-    [lotesTesouroForm]
+    () => mediasPonderadasPorCapital(lotesTesouroForm, (l) => l.taxaContratada),
+    [lotesTesouroForm],
   )
 
   const dataMediaTesouro = useMemo(
-    () => calcularDataMediaPonderada(lotesTesouroForm),
-    [lotesTesouroForm]
+    () => dataMediaPonderada(lotesTesouroForm),
+    [lotesTesouroForm],
   )
 
-  const diasMediosParaMenorIr = useMemo(() => {
-    if (tesouroRegistros.length === 0) return 0
-    const total = tesouroRegistros.reduce((sum, l) => sum + l.valorInvestido, 0)
-    if (total <= 0) return 0
-    const ponderado = tesouroRegistros.reduce((sum, l) => sum + (l.diasParaMenorIr * l.valorInvestido), 0)
-    return Math.round(ponderado / total)
-  }, [tesouroRegistros])
+  // Per-lote: Duration Modificada + Convexidade (Fabozzi/CFA Institute)
+  const analisesLotes = useMemo<AnaliseTesouroLote[]>(
+    () => tesouroRegistros.map((r) =>
+      analisarLote(r.dataCompra, r.valorInvestido, r.taxaContratada, taxaAtualTesouro, durationAnos),
+    ),
+    [tesouroRegistros, taxaAtualTesouro, durationAnos],
+  )
 
-  const mtmEstimado = useMemo(
-    () => calcularMarcacaoMercado(totalInvestidoTesouro, taxaMediaTesouro, taxaAtualTesouro, durationAnos),
-    [totalInvestidoTesouro, taxaMediaTesouro, taxaAtualTesouro, durationAnos]
+  const mtmTotalTesouro = useMemo(
+    () => analisesLotes.reduce((s, a) => s + a['mtmR$'], 0),
+    [analisesLotes],
+  )
+
+  const economiaIrTotal = useMemo(
+    () => analisesLotes.reduce((s, a) => s + a.economiaIrAguardando, 0),
+    [analisesLotes],
+  )
+
+  const aliquotaIrMediaTesouro = useMemo(
+    () => mediasPonderadasPorCapital(
+      tesouroRegistros.map((r, i) => ({
+        valorInvestido: r.valorInvestido,
+        ir: analisesLotes[i]?.aliquotaIrAtual ?? 0,
+      })),
+      (l) => l.ir,
+    ),
+    [tesouroRegistros, analisesLotes],
+  )
+
+  const diasMediosParaMenorIr = useMemo(
+    () => Math.round(
+      mediasPonderadasPorCapital(
+        tesouroRegistros.map((r, i) => ({
+          valorInvestido: r.valorInvestido,
+          dias: analisesLotes[i]?.diasParaMenorIr ?? 0,
+        })),
+        (l) => l.dias,
+      ),
+    ),
+    [tesouroRegistros, analisesLotes],
+  )
+
+  const durationModMediaTesouro = useMemo(
+    () => mediasPonderadasPorCapital(
+      analisesLotes.map((a, i) => ({
+        valorInvestido: tesouroRegistros[i]?.valorInvestido ?? 0,
+        md: a.md,
+      })),
+      (l) => l.md,
+    ),
+    [analisesLotes, tesouroRegistros],
   )
 
   const decisaoTesouro = useMemo(
-    () => decidirVenda(taxaMediaTesouro, taxaAtualTesouro, diasMediosParaMenorIr),
-    [taxaMediaTesouro, taxaAtualTesouro, diasMediosParaMenorIr]
+    () => gerarSinalTesouro(
+      taxaMediaTesouro,
+      taxaAtualTesouro,
+      diasMediosParaMenorIr,
+      aliquotaIrMediaTesouro,
+      mtmTotalTesouro,
+      economiaIrTotal,
+    ),
+    [taxaMediaTesouro, taxaAtualTesouro, diasMediosParaMenorIr, aliquotaIrMediaTesouro, mtmTotalTesouro, economiaIrTotal],
   )
 
   const registrosFiltrados = useMemo(() => {
@@ -277,6 +328,8 @@ function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(() => { setAnaliseIa(null) }, [activeTab])
+
   const handleSalvarLciLca = async () => {
     const novoRegistro: RegistroLciLca = {
       id: crypto.randomUUID(),
@@ -325,36 +378,38 @@ function App() {
       return
     }
 
-    const diasParaMenorIr = calcularDiasParaMenorIr(novoLoteDataCompra)
+    const diasIrNovoLote = calcDiasParaMenorIr(novoLoteDataCompra)
 
     const lotesComNovo = [
       ...lotesTesouroForm,
-      {
-        dataCompra: novoLoteDataCompra,
-        valorInvestido: novoLoteValor,
-        taxaContratada: novoLoteTaxa
-      }
+      { dataCompra: novoLoteDataCompra, valorInvestido: novoLoteValor, taxaContratada: novoLoteTaxa },
     ]
 
-    const taxaMediaComNovo = calcularMediaPonderadaTaxa(lotesComNovo)
-    const dataMediaComNovo = calcularDataMediaPonderada(lotesComNovo)
-    const totalComNovo = lotesComNovo.reduce((sum, l) => sum + l.valorInvestido, 0)
-    const diasMediosComNovo = Math.round(
-      ([...tesouroRegistros, {
-        id: 'temp',
-        criadoEm: new Date().toISOString(),
-        dataCompra: novoLoteDataCompra,
-        valorInvestido: novoLoteValor,
-        taxaContratada: novoLoteTaxa,
-        taxaAtual: taxaAtualTesouro,
-        diasParaMenorIr,
-        sinal: 'manter' as const,
-        analise: ''
-      }] as RegistroTesouroIpca[])
-        .reduce((sum, l) => sum + (l.diasParaMenorIr * l.valorInvestido), 0) / totalComNovo
-    )
+    const taxaMediaComNovo = mediasPonderadasPorCapital(lotesComNovo, (l) => l.taxaContratada)
+    const dataMediaComNovo = dataMediaPonderada(lotesComNovo)
 
-    const decisao = decidirVenda(taxaMediaComNovo, taxaAtualTesouro, diasMediosComNovo)
+    // Análise do novo lote isolado para snapshot
+    const analiseNovoLote = analisarLote(novoLoteDataCompra, novoLoteValor, novoLoteTaxa, taxaAtualTesouro, durationAnos)
+
+    // Análise completa da carteira futura para gerar sinal
+    const analisesComNovo = lotesComNovo.map((l) =>
+      analisarLote(l.dataCompra, l.valorInvestido, l.taxaContratada, taxaAtualTesouro, durationAnos),
+    )
+    const diasMediosComNovo = Math.round(
+      mediasPonderadasPorCapital(
+        lotesComNovo.map((l, i) => ({ valorInvestido: l.valorInvestido, dias: analisesComNovo[i]?.diasParaMenorIr ?? 0 })),
+        (l) => l.dias,
+      ),
+    )
+    const irMediaComNovo = mediasPonderadasPorCapital(
+      lotesComNovo.map((l, i) => ({ valorInvestido: l.valorInvestido, ir: analisesComNovo[i]?.aliquotaIrAtual ?? 0 })),
+      (l) => l.ir,
+    )
+    const mtmComNovo = analisesComNovo.reduce((s, a) => s + a['mtmR$'], 0)
+    const econComNovo = analisesComNovo.reduce((s, a) => s + a.economiaIrAguardando, 0)
+
+    const decisaoComNovo = gerarSinalTesouro(taxaMediaComNovo, taxaAtualTesouro, diasMediosComNovo, irMediaComNovo, mtmComNovo, econComNovo)
+    const sinalBinario: 'vender' | 'manter' = decisaoComNovo.sinal === 'VENDER' ? 'vender' : 'manter'
 
     const novoRegistro: RegistroTesouroIpca = {
       id: crypto.randomUUID(),
@@ -363,9 +418,10 @@ function App() {
       valorInvestido: novoLoteValor,
       taxaContratada: novoLoteTaxa,
       taxaAtual: taxaAtualTesouro,
-      diasParaMenorIr,
-      sinal: decisao.recomendacaoCurta,
-      analise: `Média compra: ${dataMediaComNovo} | Taxa média: ${taxaMediaComNovo.toFixed(2)}% | ${decisao.texto}`
+      diasParaMenorIr: diasIrNovoLote,
+      sinal: sinalBinario,
+      analise: `MD: ${analiseNovoLote.md.toFixed(2)}a | MTM: R$ ${analiseNovoLote['mtmR$'].toFixed(2)} | ` +
+        `IR: ${analiseNovoLote.aliquotaIrAtual}% | Média carteira: ${dataMediaComNovo} taxa ${taxaMediaComNovo.toFixed(2)}% | ${decisaoComNovo.texto}`,
     }
 
     setLoading(true)
@@ -464,6 +520,63 @@ function App() {
     }
   }
 
+  const handleAnalisarIa = async () => {
+    setAnalisandoIa(true)
+    setAnaliseIa(null)
+    try {
+      let body: Record<string, unknown>
+      if (activeTab === 'lci-lca') {
+        body = {
+          tipo: 'lci-lca',
+          prazoDias, taxaLciLca, aporte, cdiAtual, ipcaProjetado,
+          aliquotaIr, cdbEquivalente, rendLciLiquido, rendCdbLiquido,
+          rendLciPctAa, ganhoRealLci,
+          benchmarkLabel: benchmarkLci.label,
+          benchmarkDescricao: benchmarkLci.descricao,
+        }
+      } else {
+        if (tesouroRegistros.length === 0) {
+          pushNotification('warning', 'Carteira vazia', 'Adicione pelo menos um lote antes de analisar.')
+          setAnalisandoIa(false)
+          return
+        }
+        body = {
+          tipo: 'tesouro-ipca',
+          lotes: tesouroRegistros.map((r) => ({
+            dataCompra: r.dataCompra,
+            valorInvestido: r.valorInvestido,
+            taxaContratada: r.taxaContratada,
+          })),
+          taxaAtual: taxaAtualTesouro,
+          durationAnos,
+          totalInvestido: totalInvestidoTesouro,
+          taxaMediaContratada: taxaMediaTesouro,
+          durationModMedia: durationModMediaTesouro,
+          mtmTotal: mtmTotalTesouro,
+          aliquotaIrMedia: aliquotaIrMediaTesouro,
+          diasParaMenorIr: diasMediosParaMenorIr,
+          ganhoLiquidoHoje: analisesLotes.reduce((s, a) => s + a.ganhoLiquidoHoje, 0),
+          ganhoLiquidoIrMin: analisesLotes.reduce((s, a) => s + a.ganhoLiquidoIrMin, 0),
+          economiaIr: economiaIrTotal,
+          sinal: decisaoTesouro.sinal,
+          forcaSinal: decisaoTesouro.forca,
+        }
+      }
+      const res = await fetch('/api/analisar-ia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error(await parseApiError(res))
+      const data = await res.json() as { ok: boolean; analise: AnaliseIA }
+      setAnaliseIa(data.analise)
+    } catch (error) {
+      pushNotification('error', 'Erro na análise IA', error instanceof Error ? error.message : 'Falha ao contactar Gemini.')
+    } finally {
+      setAnalisandoIa(false)
+    }
+  }
+
   return (
     <main className="container">
       <aside className="notifications" aria-live="polite">
@@ -509,31 +622,129 @@ function App() {
 
           <div className="grid">
             <label>
-              Prazo (Dias)
+              Prazo (Dias corridos)
               <input type="number" min={1} value={prazoDias} onChange={(e) => setPrazoDias(Number(e.target.value))} />
             </label>
 
             <label>
               Taxa da LCI/LCA (% do CDI)
-              <input type="number" min={1} value={taxaLciLca} onChange={(e) => setTaxaLciLca(Number(e.target.value))} />
+              <input type="number" min={1} step={0.1} value={taxaLciLca} onChange={(e) => setTaxaLciLca(Number(e.target.value))} />
             </label>
 
             <label>
               Aporte (R$)
               <input type="number" min={0} value={aporte} onChange={(e) => setAporte(Number(e.target.value))} />
             </label>
+
+            <label>
+              CDI atual (% a.a.)
+              <input type="number" min={0.01} step={0.01} value={cdiAtual} onChange={(e) => setCdiAtual(Number(e.target.value))} />
+            </label>
+
+            <label>
+              IPCA projetado 12m (% a.a.)
+              <input type="number" min={0} step={0.01} value={ipcaProjetado} onChange={(e) => setIpcaProjetado(Number(e.target.value))} />
+            </label>
           </div>
 
           <article className="result">
-            <h3>Resultado de Equivalência</h3>
-            <p>Alíquota de IR do CDB no prazo: <strong>{aliquotaIr.toFixed(1)}%</strong></p>
-            <p>CDB equivalente para igualar a LCI/LCA: <strong>{cdbEquivalente.toFixed(2)}% do CDI</strong></p>
+            <h3>Análise de Equivalência LCI/LCA ↔ CDB</h3>
+
+            <div className="result-grid">
+              <div className="result-block">
+                <span className="result-label">Alíquota IR do CDB no prazo</span>
+                <span className="result-value">{aliquotaIr.toFixed(1)}%</span>
+              </div>
+              {iofPct > 0 && (
+                <div className="result-block warn">
+                  <span className="result-label">IOF (prazo &lt; 30 dias)</span>
+                  <span className="result-value">{iofPct.toFixed(0)}%</span>
+                </div>
+              )}
+              <div className="result-block highlight">
+                <span className="result-label">CDB bruto equivalente</span>
+                <span className="result-value">{cdbEquivalente.toFixed(2)}% CDI</span>
+              </div>
+            </div>
+
+            <div className="result-divider" />
+
+            <h4>Rendimento estimado no período (CDI a {cdiAtual}% a.a.)</h4>
+            <div className="result-grid">
+              <div className="result-block">
+                <span className="result-label">LCI/LCA líquido (isento)</span>
+                <span className="result-value positive">R$ {rendLciLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+              <div className="result-block">
+                <span className="result-label">CDB equiv. líquido (após IR)</span>
+                <span className="result-value positive">R$ {rendCdbLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+              <div className="result-block">
+                <span className="result-label">Taxa efetiva a.a. (LCI/LCA)</span>
+                <span className="result-value">{rendLciPctAa.toFixed(2)}% a.a.</span>
+              </div>
+              <div className="result-block">
+                <span className="result-label">Ganho real (acima do IPCA)</span>
+                <span className={`result-value ${ganhoRealLci >= 0 ? 'positive' : 'negative'}`}>
+                  {ganhoRealLci >= 0 ? '+' : ''}{ganhoRealLci.toFixed(2)}% a.a.
+                </span>
+              </div>
+            </div>
+
+            <div className="result-divider" />
+
+            <div className={`benchmark-badge ${benchmarkLci.classe}`}>
+              <strong>Benchmark: {benchmarkLci.label}</strong>
+              <span>{benchmarkLci.descricao}</span>
+            </div>
           </article>
 
           <div className="actions">
             <button onClick={handleSalvarLciLca} type="button">Salvar DB</button>
             <button onClick={() => void carregarRegistros()} type="button" className="ghost">Recarregar do D1</button>
+            <button onClick={() => void handleAnalisarIa()} type="button" className="btn-ia" disabled={analisandoIa}>
+              {analisandoIa ? 'Analisando...' : '✦ Analisar com IA'}
+            </button>
           </div>
+
+          {analiseIa && (
+            <article className="result analise-ia">
+              <div className="analise-ia-header">
+                <span className={`avaliacao-badge ${analiseIa.avaliacao}`}>
+                  {analiseIa.avaliacao === 'bom' ? 'BOM' : analiseIa.avaliacao === 'regular' ? 'REGULAR' : 'RUIM'}
+                </span>
+                <h3>{analiseIa.titulo}</h3>
+              </div>
+              <div className="analise-ia-numeros">
+                <div className="numero-item">
+                  <span className="result-label">Retorno líquido</span>
+                  <span className="result-value">{analiseIa.numerosChave.retornoLiquidoEstimado}</span>
+                </div>
+                <div className="numero-item">
+                  <span className="result-label">Ganho real (acima IPCA)</span>
+                  <span className="result-value">{analiseIa.numerosChave.ganhoRealAcimaIpca}</span>
+                </div>
+                <div className="numero-item">
+                  <span className="result-label">vs Tesouro Selic</span>
+                  <span className="result-value">{analiseIa.numerosChave.comparacaoTesouroSelic}</span>
+                </div>
+              </div>
+              <div className="analise-ia-body">
+                {analiseIa.analise.split('\n').filter((p) => p.trim()).map((p, i) => <p key={i}>{p}</p>)}
+              </div>
+              {analiseIa.ciladas.length > 0 && (
+                <div className="cilada-lista">
+                  <strong>⚠ Alertas detectados</strong>
+                  <ul>{analiseIa.ciladas.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                </div>
+              )}
+              <div className={`recomendacao-banner rec-${analiseIa.recomendacao.toLowerCase()}`}>
+                <span className="rec-label">{analiseIa.recomendacao}</span>
+                <span className="rec-timing">{analiseIa.timing}</span>
+              </div>
+              <p className="analise-ia-resumo">"{analiseIa.resumo}"</p>
+            </article>
+          )}
 
           <div className="records">
             <h3>Registros D1 (LCI/LCA)</h3>
@@ -546,9 +757,9 @@ function App() {
                 {lciRegistros.map((registro) => (
                   <li key={registro.id}>
                     <span>{new Date(registro.criadoEm).toLocaleString('pt-BR')}</span>
-                    <span>Prazo: {registro.prazoDias}d</span>
+                    <span>Prazo: {registro.prazoDias}d | IR: {registro.aliquotaIr.toFixed(1)}%</span>
                     <span>LCI/LCA: {registro.taxaLciLca}% CDI</span>
-                    <span>Aporte: R$ {registro.aporte.toFixed(2)}</span>
+                    <span>Aporte: R$ {registro.aporte.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                     <strong>Eq. CDB: {registro.cdbEquivalente.toFixed(2)}% CDI</strong>
                   </li>
                 ))}
@@ -569,24 +780,97 @@ function App() {
             </label>
 
             <label>
-              Duration média estimada (anos)
-              <input type="number" min={1} step={0.1} value={durationAnos} onChange={(e) => setDurationAnos(Number(e.target.value))} />
+              Macaulay Duration estimada (anos)
+              <input type="number" min={0.5} step={0.1} value={durationAnos} onChange={(e) => setDurationAnos(Number(e.target.value))} />
             </label>
           </div>
 
           <article className="result">
-            <h3>Resumo da Carteira de Lotes</h3>
-            <p>Total investido: <strong>R$ {totalInvestidoTesouro.toFixed(2)}</strong></p>
-            <p>Taxa média contratada (ponderada): <strong>{taxaMediaTesouro.toFixed(2)}% a.a.</strong></p>
-            <p>Data média de compra (ponderada): <strong>{dataMediaTesouro || '—'}</strong></p>
-            <p>Marcação a mercado estimada: <strong>R$ {mtmEstimado.toFixed(2)}</strong></p>
-            <p>Dias médios para menor IR (15%): <strong>{diasMediosParaMenorIr}</strong></p>
-            <p>
-              Sinal atual: <strong>{decisaoTesouro.recomendacaoCurta.toUpperCase()}</strong> — {decisaoTesouro.texto}
-            </p>
+            <h3>Resumo da Carteira — MTM com Convexidade</h3>
+            <p className="result-footnote">Método: Duration Modificada + Convexidade (Fabozzi/CFA Institute)</p>
+
+            <div className="result-grid">
+              <div className="result-block">
+                <span className="result-label">Total investido</span>
+                <span className="result-value">R$ {totalInvestidoTesouro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="result-block">
+                <span className="result-label">Taxa média contratada (pond.)</span>
+                <span className="result-value">{taxaMediaTesouro.toFixed(2)}% a.a.</span>
+              </div>
+              <div className="result-block">
+                <span className="result-label">Taxa de mercado atual</span>
+                <span className={`result-value ${taxaAtualTesouro < taxaMediaTesouro ? 'positive' : taxaAtualTesouro > taxaMediaTesouro ? 'negative' : ''}`}>
+                  {taxaAtualTesouro.toFixed(2)}% a.a.
+                  {taxaAtualTesouro !== taxaMediaTesouro && (
+                    <small> ({taxaAtualTesouro < taxaMediaTesouro ? '↓' : '↑'} {Math.abs(taxaAtualTesouro - taxaMediaTesouro).toFixed(2)} p.p.)</small>
+                  )}
+                </span>
+              </div>
+              <div className="result-block">
+                <span className="result-label">Duration Modificada média</span>
+                <span className="result-value">{durationModMediaTesouro.toFixed(2)} anos</span>
+              </div>
+              <div className="result-block">
+                <span className="result-label">Data média de compra (pond.)</span>
+                <span className="result-value">{dataMediaTesouro || '—'}</span>
+              </div>
+              <div className="result-block">
+                <span className="result-label">IR médio ponderado</span>
+                <span className="result-value">{aliquotaIrMediaTesouro.toFixed(1)}%</span>
+              </div>
+            </div>
+
+            <div className="result-divider" />
+            <h4>Análise de Ganho / Perda (MTM)</h4>
+            <div className="result-grid">
+              <div className={`result-block ${mtmTotalTesouro > 0 ? 'highlight' : mtmTotalTesouro < 0 ? 'warn' : ''}`}>
+                <span className="result-label">Ganho/Perda de MTM estimado</span>
+                <span className={`result-value ${mtmTotalTesouro >= 0 ? 'positive' : 'negative'}`}>
+                  {mtmTotalTesouro >= 0 ? '+' : ''}R$ {mtmTotalTesouro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              {mtmTotalTesouro > 0 && (
+                <>
+                  <div className="result-block">
+                    <span className="result-label">Líquido vender hoje (IR {aliquotaIrMediaTesouro.toFixed(1)}%)</span>
+                    <span className="result-value positive">
+                      +R$ {analisesLotes.reduce((s, a) => s + a.ganhoLiquidoHoje, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="result-block">
+                    <span className="result-label">Líquido aguardando IR 15%</span>
+                    <span className="result-value positive">
+                      +R$ {analisesLotes.reduce((s, a) => s + a.ganhoLiquidoIrMin, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  {economiaIrTotal > 0.01 && (
+                    <div className="result-block">
+                      <span className="result-label">Economia fiscal esperando IR 15%</span>
+                      <span className="result-value positive">+R$ {economiaIrTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
+                  <div className="result-block">
+                    <span className="result-label">Dias médios para IR 15%</span>
+                    <span className="result-value">{diasMediosParaMenorIr === 0 ? 'IR já no mínimo ✓' : `${diasMediosParaMenorIr} dias`}</span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="result-divider" />
+
+            <div className={`sinal-banner sinal-${decisaoTesouro.sinal.toLowerCase().replace(' ', '-')} forca-${decisaoTesouro.forca}`}>
+              <div className="sinal-header">
+                <span className="sinal-badge">{decisaoTesouro.sinal}</span>
+                <span className="sinal-forca">{decisaoTesouro.forca}</span>
+              </div>
+              <p className="sinal-texto">{decisaoTesouro.texto}</p>
+              <p className="sinal-sub">{decisaoTesouro.subTexto}</p>
+            </div>
           </article>
 
-          <h3>Novo Lote</h3>
+          <h3>Registrar novo lote</h3>
 
           <div className="grid">
             <label>
@@ -600,7 +884,7 @@ function App() {
             </label>
 
             <label>
-              Taxa contratada (% a.a.)
+              Taxa contratada IPCA+ (% a.a.)
               <input type="number" min={0.01} step={0.01} value={novoLoteTaxa} onChange={(e) => setNovoLoteTaxa(Number(e.target.value))} />
             </label>
           </div>
@@ -608,23 +892,82 @@ function App() {
           <div className="actions">
             <button onClick={handleSalvarLoteTesouro} type="button">Salvar lote no D1</button>
             <button onClick={() => void carregarRegistros()} type="button" className="ghost">Recarregar do D1</button>
+            <button onClick={() => void handleAnalisarIa()} type="button" className="btn-ia" disabled={analisandoIa}>
+              {analisandoIa ? 'Analisando...' : '✦ Analisar com IA'}
+            </button>
           </div>
+
+          {analiseIa && (
+            <article className="result analise-ia">
+              <div className="analise-ia-header">
+                <span className={`avaliacao-badge ${analiseIa.avaliacao}`}>
+                  {analiseIa.avaliacao === 'bom' ? 'BOM' : analiseIa.avaliacao === 'regular' ? 'REGULAR' : 'RUIM'}
+                </span>
+                <h3>{analiseIa.titulo}</h3>
+              </div>
+              <div className="analise-ia-numeros">
+                <div className="numero-item">
+                  <span className="result-label">Retorno líquido</span>
+                  <span className="result-value">{analiseIa.numerosChave.retornoLiquidoEstimado}</span>
+                </div>
+                <div className="numero-item">
+                  <span className="result-label">Ganho real (acima IPCA)</span>
+                  <span className="result-value">{analiseIa.numerosChave.ganhoRealAcimaIpca}</span>
+                </div>
+                <div className="numero-item">
+                  <span className="result-label">vs Tesouro Selic</span>
+                  <span className="result-value">{analiseIa.numerosChave.comparacaoTesouroSelic}</span>
+                </div>
+              </div>
+              <div className="analise-ia-body">
+                {analiseIa.analise.split('\n').filter((p) => p.trim()).map((p, i) => <p key={i}>{p}</p>)}
+              </div>
+              {analiseIa.ciladas.length > 0 && (
+                <div className="cilada-lista">
+                  <strong>⚠ Alertas detectados</strong>
+                  <ul>{analiseIa.ciladas.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                </div>
+              )}
+              <div className={`recomendacao-banner rec-${analiseIa.recomendacao.toLowerCase()}`}>
+                <span className="rec-label">{analiseIa.recomendacao}</span>
+                <span className="rec-timing">{analiseIa.timing}</span>
+              </div>
+              <p className="analise-ia-resumo">"{analiseIa.resumo}"</p>
+            </article>
+          )}
 
           <div className="records">
             {tesouroRegistros.length === 0 ? (
               <p>Nenhum lote registrado ainda.</p>
             ) : (
               <ul>
-                {tesouroRegistros.map((registro) => (
-                  <li key={registro.id}>
-                    <span>{new Date(registro.criadoEm).toLocaleString('pt-BR')}</span>
-                    <span>Compra: {registro.dataCompra}</span>
-                    <span>Valor: R$ {registro.valorInvestido.toFixed(2)}</span>
-                    <span>Taxa comprada: {registro.taxaContratada.toFixed(2)}% | Taxa atual: {registro.taxaAtual.toFixed(2)}%</span>
-                    <span className={`risk ${registro.sinal}`}>Sinal: {registro.sinal}</span>
-                    <strong>{registro.analise}</strong>
-                  </li>
-                ))}
+                {tesouroRegistros.map((registro, i) => {
+                  const analise = analisesLotes[i]
+                  return (
+                    <li key={registro.id}>
+                      <div className="lot-header">
+                        <span className="lot-date">Compra: {registro.dataCompra}</span>
+                        <span className={`risk ${registro.sinal}`}>{registro.sinal.toUpperCase()}</span>
+                      </div>
+                      <div className="lot-grid">
+                        <span>Investido: <strong>R$ {registro.valorInvestido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+                        <span>Taxa: <strong>{registro.taxaContratada.toFixed(2)}%</strong></span>
+                        {analise && (
+                          <>
+                            <span>MD: <strong>{analise.md.toFixed(2)}a</strong></span>
+                            <span>IR atual: <strong>{analise.aliquotaIrAtual}%</strong></span>
+                            <span className={analise['mtmR$'] >= 0 ? 'positive' : 'negative'}>
+                              MTM: <strong>{analise['mtmR$'] >= 0 ? '+' : ''}R$ {analise['mtmR$'].toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                              {' '}({analise.mtmPct >= 0 ? '+' : ''}{analise.mtmPct.toFixed(2)}%)
+                            </span>
+                            <span>Dias p/ IR 15%: <strong>{analise.diasParaMenorIr === 0 ? '✓ atingido' : analise.diasParaMenorIr}</strong></span>
+                          </>
+                        )}
+                      </div>
+                      <small className="lot-analise">{registro.analise}</small>
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </div>
