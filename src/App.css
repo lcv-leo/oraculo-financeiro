@@ -1,3 +1,10 @@
+:root {
+  --bar-padding-y: 0.8rem;
+  --bar-padding-x: 1rem;
+  --bar-min-height: 3rem;
+  --bar-font-size: 0.82rem;
+}
+
 .container {
   width: min(1100px, 100%);
   margin: 0 auto;
@@ -18,7 +25,9 @@
 }
 
 .hero {
-  padding: 1rem 1.2rem;
+  padding: var(--bar-padding-y) var(--bar-padding-x);
+  min-height: var(--bar-min-height);
+  font-size: var(--bar-font-size);
 }
 
 .hero-top {
@@ -29,21 +38,21 @@
 
 .brand-panel {
   flex: 1;
-  min-height: 92px;
-  border-radius: 0.9rem;
+  min-height: var(--bar-min-height);
+  border-radius: 0.72rem;
   border: 1px solid rgba(96, 88, 133, 0.28);
   background: rgba(255, 255, 255, 0.72);
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  padding: 0.75rem 0.9rem;
+  justify-content: center;
+  padding: var(--bar-padding-y) var(--bar-padding-x);
 }
 
 .status-square {
   width: 96px;
   min-width: 96px;
-  min-height: 92px;
-  border-radius: 0.9rem;
+  min-height: var(--bar-min-height);
+  border-radius: 0.72rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -53,7 +62,7 @@
 }
 
 .status-square span {
-  font-size: 0.76rem;
+  font-size: clamp(0.72rem, 0.95em, 0.82rem);
   font-weight: 700;
   line-height: 1.1;
 }
@@ -79,15 +88,17 @@
 .chip {
   margin: 0;
   width: 100%;
-  padding: 0.85rem 1rem;
-  border-radius: 0.72rem;
+  padding: 0;
+  border-radius: 0;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  font-size: 0.92rem;
+  font-size: clamp(0.9em, 1.25em, 1.35em);
+  line-height: 1.25;
   font-weight: 700;
   color: #4532a5;
-  border: 1px solid rgba(69, 50, 165, 0.28);
-  background: linear-gradient(135deg, rgba(69, 50, 165, 0.14), rgba(79, 70, 229, 0.1));
+  border: none;
+  background: transparent;
+  text-align: center;
 }
 
 .hero h1 {
@@ -293,6 +304,27 @@ button.ghost {
 
 .footer-table {
   margin-top: 0.25rem;
+}
+
+.footer-table h2 {
+  margin: 0;
+  min-height: var(--bar-min-height);
+  padding: var(--bar-padding-y) var(--bar-padding-x);
+  border-radius: 0.72rem;
+  border: 1px solid rgba(96, 88, 133, 0.28);
+  background: rgba(255, 255, 255, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: clamp(0.9em, 1.25em, 1.35em);
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  color: #4532a5;
+}
+
+.footer-table .legend {
+  margin-top: 0.6rem;
 }
 
 .table-toolbar {
@@ -652,6 +684,7 @@ td {
   color: #6d6490;
   line-height: 1.4;
   word-break: break-word;
+}
 
 /* ─── BOTÃO IA ────────────────────────────────────────────────────────────── */
 
@@ -827,4 +860,62 @@ td {
   padding-top: 0.55rem;
   line-height: 1.5;
 }
+
+@media (max-width: 720px) {
+  :root {
+    --bar-padding-y: 0.75rem;
+    --bar-padding-x: 0.85rem;
+    --bar-min-height: 2.75rem;
+  }
+
+  .hero {
+    padding: var(--bar-padding-y) var(--bar-padding-x);
+    min-height: var(--bar-min-height);
+  }
+
+  .hero-top {
+    gap: 0.55rem;
+  }
+
+  .brand-panel {
+    min-height: var(--bar-min-height);
+    padding: var(--bar-padding-y) var(--bar-padding-x);
+  }
+
+  .status-square {
+    min-height: var(--bar-min-height);
+    width: 88px;
+    min-width: 88px;
+  }
+
+  .footer-table h2 {
+    min-height: var(--bar-min-height);
+    padding: var(--bar-padding-y) var(--bar-padding-x);
+  }
+}
+
+@media (max-width: 420px) {
+  :root {
+    --bar-padding-y: 0.7rem;
+    --bar-padding-x: 0.78rem;
+    --bar-min-height: 2.6rem;
+  }
+
+  .hero-top {
+    flex-direction: column;
+  }
+
+  .status-square {
+    width: 100%;
+    min-width: 0;
+    min-height: var(--bar-min-height);
+  }
+
+  .chip {
+    font-size: clamp(0.84em, 1.1em, 1.22em);
+  }
+
+  .footer-table h2 {
+    font-size: clamp(0.84em, 1.1em, 1.22em);
+  }
 }
