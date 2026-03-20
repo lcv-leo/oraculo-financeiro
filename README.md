@@ -87,6 +87,8 @@ Workflow:
 
 - `.github/workflows/deploy.yml`
 
+O deploy de produção usa `wrangler pages deploy` lendo o `wrangler.toml`, garantindo que o binding D1 `BIGDATA_DB` seja levado junto com a publicação.
+
 Secrets necessários no GitHub:
 
 - `CLOUDFLARE_API_TOKEN`
