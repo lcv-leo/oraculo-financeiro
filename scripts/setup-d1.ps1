@@ -15,29 +15,6 @@ function Write-Ok($Message) {
   Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
-function Get-DatabaseIdFromWranglerJson($rawOutput) {
-  $lines = $rawOutput -split "`r?`n"
-
-  # Tenta pegar última linha JSON válida
-  for ($i = $lines.Length - 1; $i -ge 0; $i--) {
-    $line = $lines[$i].Trim()
-    if ([string]::IsNullOrWhiteSpace($line)) { continue }
-
-    try {
-      $obj = $line | ConvertFrom-Json
-      if ($obj.uuid) { return [string]$obj.uuid }
-      if ($obj.database_id) { return [string]$obj.database_id }
-      if ($obj.result.uuid) { return [string]$obj.result.uuid }
-      if ($obj.result.database_id) { return [string]$obj.result.database_id }
-    }
-    catch {
-      continue
-    }
-  }
-
-  return $null
-}
-
 if (-not (Test-Path $WranglerTomlPath)) {
   throw "Arquivo '$WranglerTomlPath' não encontrado."
 }
@@ -47,29 +24,27 @@ if (-not (Test-Path $SchemaPath)) {
 }
 
 Write-Info "Criando D1 '$DatabaseName' com wrangler latest..."
-$createOutput = & npx --yes wrangler@latest d1 create $DatabaseName --json 2>&1 | Out-String
+$createOutput = & npx --yes wrangler@latest d1 create $DatabaseName --binding BIGDATA_DB --update-config 2>&1 | Out-String
 
-$databaseId = Get-DatabaseIdFromWranglerJson $createOutput
-if (-not $databaseId) {
-  Write-Host $createOutput
-  throw "Não foi possível extrair o database_id/uuid do retorno do Wrangler."
+if ($LASTEXITCODE -ne 0) {
+  if ($createOutput -match 'already exists|already configured|already has') {
+    Write-Info "Banco já existe. Prosseguindo com migração e validação de config..."
+  }
+  else {
+    Write-Host $createOutput
+    throw "Falha ao criar D1 '$DatabaseName'."
+  }
 }
 
-Write-Ok "D1 criada. database_id = $databaseId"
-
-Write-Info "Atualizando '$WranglerTomlPath'..."
 $wranglerContent = Get-Content $WranglerTomlPath -Raw
-
 if ($wranglerContent -match 'database_id\s*=\s*"REPLACE_WITH_D1_DATABASE_ID"') {
-  $wranglerContent = $wranglerContent -replace 'database_id\s*=\s*"REPLACE_WITH_D1_DATABASE_ID"', "database_id = `"$databaseId`""
+  Write-Host ""
+  Write-Host "[ATENÇÃO] O database_id ainda está como placeholder em wrangler.toml." -ForegroundColor Yellow
+  Write-Host "Execute manualmente 'npx wrangler d1 create bigdata_db --binding BIGDATA_DB --update-config' e confirme alteração." -ForegroundColor Yellow
 }
 else {
-  # fallback: substitui qualquer database_id existente
-  $wranglerContent = $wranglerContent -replace 'database_id\s*=\s*"[^"]*"', "database_id = `"$databaseId`""
+  Write-Ok "wrangler.toml atualizado com database_id válido."
 }
-
-Set-Content -Path $WranglerTomlPath -Value $wranglerContent -Encoding UTF8
-Write-Ok "wrangler.toml atualizado com database_id."
 
 if (-not $SkipMigrate) {
   Write-Info "Aplicando schema remoto em '$DatabaseName'..."
