@@ -99,7 +99,7 @@ async function parseApiError(response: Response) {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<TabId>('lci-lca')
+  const [activeTab, setActiveTab] = useState<TabId>('tesouro-ipca')
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedRegistroId, setSelectedRegistroId] = useState<string | null>(null)
