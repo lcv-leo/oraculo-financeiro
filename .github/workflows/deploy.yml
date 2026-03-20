@@ -38,3 +38,43 @@ jobs:
           directory: "dist"
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           branch: production
+
+      - name: Health-check pós deploy
+        shell: bash
+        run: |
+          APP_URL="${{ vars.APP_BASE_URL }}"
+          if [ -z "$APP_URL" ]; then
+            APP_URL="https://oraculo-financeiro.lcv.app.br"
+          fi
+
+          echo "Validando API em: $APP_URL"
+
+          endpoints=(
+            "/api/registros-lci-cdb?limit=5&offset=0"
+            "/api/auditorias-ia"
+          )
+
+          for endpoint in "${endpoints[@]}"; do
+            echo "Checando endpoint: $endpoint"
+            ok=0
+
+            for tentativa in {1..12}; do
+              response=$(curl -fsS "$APP_URL$endpoint" || true)
+
+              if echo "$response" | grep -Eiq '"ok"\s*:\s*true'; then
+                echo "✅ $endpoint OK (tentativa $tentativa)"
+                ok=1
+                break
+              fi
+
+              echo "⏳ tentativa $tentativa/12 sem OK para $endpoint; aguardando 10s..."
+              sleep 10
+            done
+
+            if [ "$ok" -ne 1 ]; then
+              echo "::error::Falha no health-check do endpoint $endpoint"
+              exit 1
+            fi
+          done
+
+          echo "✅ Health-check pós deploy concluído."
