@@ -618,7 +618,7 @@ function App() {
 
       {activeTab === 'lci-lca' && (
         <section className="panel">
-          <h2>LCI/LCA: equivalência em CDB</h2>
+          <h2>LCI/LCA: &sim; CDB</h2>
 
           <div className="grid">
             <label>
@@ -747,7 +747,7 @@ function App() {
           )}
 
           <div className="records">
-            <h3>Registros D1 (LCI/LCA)</h3>
+            <h3>Marcação a Mercado (LCI/LCA)</h3>
             {loading && lciRegistros.length === 0 ? (
               <p>Carregando dados do D1...</p>
             ) : lciRegistros.length === 0 ? (
