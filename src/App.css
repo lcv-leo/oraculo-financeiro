@@ -919,3 +919,20 @@ td {
     font-size: clamp(0.84em, 1.1em, 1.22em);
   }
 }
+
+/* ─── APP VERSION FOOTER ──────────────────────────────────────────────────── */
+
+.app-version-footer {
+  width: 100%;
+  text-align: center;
+  padding: 2rem 0 1rem;
+  opacity: 0.5;
+}
+
+.app-version-footer span {
+  font-family: monospace;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}

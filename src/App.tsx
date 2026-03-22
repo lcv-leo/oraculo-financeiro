@@ -1,3 +1,7 @@
+// Módulo: oraculo-financeiro/src/App.tsx
+// Versão: v01.01.00
+// Descrição: Frontend do Oráculo Financeiro — análise LCI/LCA e Tesouro IPCA+ com IA Gemini.
+
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import {
@@ -16,6 +20,8 @@ import {
   mediasPonderadasPorCapital,
   diasParaMenorIr as calcDiasParaMenorIr,
 } from './lib/finance'
+
+const APP_VERSION = 'APP v01.01.00'
 
 type TabId = 'lci-lca' | 'tesouro-ipca'
 
@@ -1120,6 +1126,10 @@ function App() {
           </div>
         </div>
       )}
+
+      <footer className="app-version-footer">
+        <span>{APP_VERSION}</span>
+      </footer>
     </main>
   )
 }

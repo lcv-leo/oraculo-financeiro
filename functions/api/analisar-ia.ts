@@ -1,3 +1,7 @@
+// Módulo: oraculo-financeiro/functions/api/analisar-ia.ts
+// Versão: v01.01.00
+// Descrição: Upgrade Gemini API — modelo gemini-pro-latest (auto-atualiza), v1beta, thinkingLevel HIGH, safetySettings (BLOCK_NONE para conteúdo financeiro), retry com 1 tentativa extra. Prompt fiduciário preservado.
+
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
 type D1Result<T = unknown> = { results?: T[] }
