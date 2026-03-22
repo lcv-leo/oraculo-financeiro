@@ -265,8 +265,9 @@ export const onRequestPost = async ({ env, request }: Context) => {
     ? buildPromptLciLca(payload as PayloadLciLca)
     : buildPromptTesouro(payload as PayloadTesouro)
 
-  // Chama Gemini 2.5 Pro via REST (compatível com Cloudflare Workers)
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`
+  // Alias "latest" aponta sempre para o Pro mais recente
+  // Ref: https://ai.google.dev/gemini-api/docs/models#latest
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent?key=${apiKey}`
 
   const geminiBody = {
     system_instruction: {
@@ -280,22 +281,34 @@ export const onRequestPost = async ({ env, request }: Context) => {
     ],
     generationConfig: {
       responseMimeType: 'application/json',
-      temperature: 0.3,        // baixo para análises consistentes e reproduzíveis
+      temperature: 0.3,
       thinkingConfig: {
-        thinkingBudget: 8000,  // permite raciocínio profundo antes de responder
+        thinkingBudget: -1,  // dinâmico: o modelo decide a profundidade
       },
     },
+    safetySettings: [
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+    ],
   }
 
-  let geminiResponse: Response
-  try {
-    geminiResponse = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(geminiBody),
-    })
-  } catch {
-    return jsonResponse({ ok: false, error: 'Falha de rede ao contactar a API Gemini.' }, 502)
+  // Retry: 1 tentativa extra em caso de falha transitória
+  let geminiResponse!: Response
+  for (let tentativa = 0; tentativa < 2; tentativa++) {
+    try {
+      geminiResponse = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(geminiBody),
+      })
+      if (geminiResponse.ok) break
+      if (tentativa === 0) await new Promise(r => setTimeout(r, 800))
+    } catch {
+      if (tentativa === 1) return jsonResponse({ ok: false, error: 'Falha de rede ao contactar a API Gemini.' }, 502)
+      await new Promise(r => setTimeout(r, 800))
+    }
   }
 
   if (!geminiResponse.ok) {
