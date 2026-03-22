@@ -1,0 +1,17 @@
+# Módulo: .github/dependabot.yml (v1.0.0)
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "ci-cd"
+      - "atualização-de-segurança"
+
+    open-pull-requests-limit: 10
