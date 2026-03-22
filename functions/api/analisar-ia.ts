@@ -283,7 +283,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
       responseMimeType: 'application/json',
       temperature: 0.3,
       thinkingConfig: {
-        thinkingBudget: -1,  // dinâmico: o modelo decide a profundidade
+        thinkingLevel: "HIGH",
       },
     },
     safetySettings: [
