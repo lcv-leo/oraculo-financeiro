@@ -349,7 +349,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
     if (db && typeof db.prepare === 'function') {
       const risco = analise.avaliacao === 'ruim' ? 'alto' : analise.avaliacao === 'regular' ? 'medio' : 'baixo'
       await db.prepare(
-        `INSERT INTO auditorias_ia (id, created_at, observacao, risco, recomendacao)
+        `INSERT INTO oraculo_auditorias_ia (id, created_at, observacao, risco, recomendacao)
          VALUES (?1, ?2, ?3, ?4, ?5)`,
       )
         .bind(

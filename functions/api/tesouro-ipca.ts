@@ -68,7 +68,7 @@ export const onRequestGet = async ({ env }: Context) => {
         dias_para_menor_ir AS diasParaMenorIr,
         recomendacao,
         observacao
-       FROM tesouro_ipca_lotes
+       FROM oraculo_tesouro_ipca_lotes
        ORDER BY datetime(created_at) DESC
        LIMIT 200`
     ).all()
@@ -132,7 +132,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
     const criadoEm = new Date().toISOString()
 
     await db.prepare(
-      `INSERT INTO tesouro_ipca_lotes (
+      `INSERT INTO oraculo_tesouro_ipca_lotes (
         id,
         created_at,
         data_compra,

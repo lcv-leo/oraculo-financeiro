@@ -62,7 +62,7 @@ export const onRequestGet = async ({ env }: Context) => {
         observacao,
         risco,
         recomendacao
-       FROM auditorias_ia
+       FROM oraculo_auditorias_ia
        ORDER BY datetime(created_at) DESC
        LIMIT 25`
     ).all()
@@ -99,7 +99,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
     const criadoEm = new Date().toISOString()
 
     await db.prepare(
-      `INSERT INTO auditorias_ia (id, created_at, observacao, risco, recomendacao)
+      `INSERT INTO oraculo_auditorias_ia (id, created_at, observacao, risco, recomendacao)
        VALUES (?1, ?2, ?3, ?4, ?5)`
     )
       .bind(id, criadoEm, observacao, risco, recomendacao)

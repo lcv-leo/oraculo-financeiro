@@ -64,7 +64,7 @@ export const onRequestGet = async ({ env, request }: Context) => {
     const offset = Number.isFinite(offsetParam) ? Math.max(Math.trunc(offsetParam), 0) : 0
 
     const countResult = await db.prepare(
-      'SELECT COUNT(*) AS total FROM lci_cdb_registros'
+      'SELECT COUNT(*) AS total FROM oraculo_lci_cdb_registros'
     ).all()
 
     const total = Number((countResult.results?.[0] as { total?: number } | undefined)?.total ?? 0)
@@ -83,7 +83,7 @@ export const onRequestGet = async ({ env, request }: Context) => {
           ELSE 15
         END AS aliquotaIr,
         rendimento_bruto AS cdbEquivalente
-       FROM lci_cdb_registros
+       FROM oraculo_lci_cdb_registros
        ORDER BY datetime(created_at) DESC
        LIMIT ?1 OFFSET ?2`
     )
@@ -123,7 +123,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
     const criadoEm = new Date().toISOString()
 
     await db.prepare(
-      `INSERT INTO lci_cdb_registros (id, created_at, prazo_dias, taxa_cdi, aporte, rendimento_bruto)
+      `INSERT INTO oraculo_lci_cdb_registros (id, created_at, prazo_dias, taxa_cdi, aporte, rendimento_bruto)
        VALUES (?1, ?2, ?3, ?4, ?5, ?6)`
     )
       .bind(id, criadoEm, prazoDias, taxaLciLca, aporte, cdbEquivalente)
@@ -168,7 +168,7 @@ export const onRequestDelete = async ({ env, request }: Context) => {
       return jsonResponse({ ok: false, error: 'Parâmetro id é obrigatório para exclusão.' }, 400)
     }
 
-    await db.prepare('DELETE FROM lci_cdb_registros WHERE id = ?1')
+    await db.prepare('DELETE FROM oraculo_lci_cdb_registros WHERE id = ?1')
       .bind(id)
       .run()
 
