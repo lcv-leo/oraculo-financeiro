@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS tesouro_ipca_lotes (
+CREATE TABLE IF NOT EXISTS oraculo_tesouro_ipca_lotes (
   id TEXT PRIMARY KEY,
   created_at TEXT NOT NULL,
   data_compra TEXT NOT NULL,
@@ -10,4 +10,4 @@ CREATE TABLE IF NOT EXISTS tesouro_ipca_lotes (
   observacao TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_tesouro_created_at ON tesouro_ipca_lotes(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_oraculo_tesouro_created_at ON oraculo_tesouro_ipca_lotes(created_at DESC);

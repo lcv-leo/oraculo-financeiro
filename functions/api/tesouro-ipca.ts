@@ -12,7 +12,7 @@ interface D1DatabaseLike {
 }
 
 interface Env {
-  FINANCEIRO_DB: D1DatabaseLike
+  BIGDATA_DB: D1DatabaseLike
 }
 
 interface Context {
@@ -45,9 +45,9 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 function getDbOrThrow(env: Env) {
-  const db = env?.FINANCEIRO_DB
+  const db = env?.BIGDATA_DB
   if (!db || typeof db.prepare !== 'function') {
-    throw new Error('Binding FINANCEIRO_DB ausente.')
+    throw new Error('Binding BIGDATA_DB ausente.')
   }
 
   return db
@@ -68,7 +68,7 @@ export const onRequestGet = async ({ env }: Context) => {
         dias_para_menor_ir AS diasParaMenorIr,
         recomendacao,
         observacao
-       FROM tesouro_ipca_lotes
+       FROM oraculo_tesouro_ipca_lotes
        ORDER BY datetime(created_at) DESC
        LIMIT 200`
     ).all()
@@ -132,7 +132,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
     const criadoEm = new Date().toISOString()
 
     await db.prepare(
-      `INSERT INTO tesouro_ipca_lotes (
+      `INSERT INTO oraculo_tesouro_ipca_lotes (
         id,
         created_at,
         data_compra,

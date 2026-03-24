@@ -12,7 +12,7 @@ interface D1DatabaseLike {
 }
 
 interface Env {
-  FINANCEIRO_DB: D1DatabaseLike
+  BIGDATA_DB: D1DatabaseLike
 }
 
 interface Context {
@@ -41,10 +41,10 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 function getDbOrThrow(env: Env) {
-  const db = env?.FINANCEIRO_DB
+  const db = env?.BIGDATA_DB
   if (!db || typeof db.prepare !== 'function') {
     throw new Error(
-      'Binding FINANCEIRO_DB ausente. Configure a D1 financeiro-db no Cloudflare Pages (Production environment).'
+      'Binding BIGDATA_DB ausente. Configure a D1 bigdata_db no Cloudflare Pages (Production environment).'
     )
   }
 
@@ -62,7 +62,7 @@ export const onRequestGet = async ({ env }: Context) => {
         observacao,
         risco,
         recomendacao
-       FROM auditorias_ia
+       FROM oraculo_auditorias_ia
        ORDER BY datetime(created_at) DESC
        LIMIT 25`
     ).all()
@@ -99,7 +99,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
     const criadoEm = new Date().toISOString()
 
     await db.prepare(
-      `INSERT INTO auditorias_ia (id, created_at, observacao, risco, recomendacao)
+      `INSERT INTO oraculo_auditorias_ia (id, created_at, observacao, risco, recomendacao)
        VALUES (?1, ?2, ?3, ?4, ?5)`
     )
       .bind(id, criadoEm, observacao, risco, recomendacao)

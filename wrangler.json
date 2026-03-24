@@ -4,9 +4,9 @@
   "pages_build_output_dir": "dist",
   "d1_databases": [
     {
-      "binding": "FINANCEIRO_DB",
-      "database_name": "financeiro-db",
-      "database_id": "663d45f1-f539-4607-b439-ddaf90affa88"
+      "binding": "BIGDATA_DB",
+      "database_name": "bigdata_db",
+      "database_id": "6a71b62e-8ab9-45e6-a867-c0d4e6a56269"
     }
   ]
 }
