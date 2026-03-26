@@ -2,7 +2,7 @@
 // Versão: v01.02.00
 // Descrição: Frontend do Oráculo Financeiro — análise LCI/LCA e Tesouro IPCA+ com IA Gemini.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import {
   aliquotaIrRegressiva,
@@ -42,10 +42,20 @@ type RegistroTesouroIpca = RegistroBase & {
   dataCompra: string
   valorInvestido: number
   taxaContratada: number
+  vencimento: string       // ex: "15/08/2032"
   taxaAtual: number
   diasParaMenorIr: number
   sinal: 'vender' | 'manter'
   analise: string
+}
+
+type TituloTD = {
+  tipo: string
+  vencimento: string
+  dataBase: string
+  taxaCompra: number
+  taxaVenda: number
+  pu: number
 }
 
 type NotificationTone = 'success' | 'info' | 'warning' | 'error'
@@ -75,6 +85,7 @@ type LoteTesouroForm = {
   dataCompra: string
   valorInvestido: number
   taxaContratada: number
+  vencimento: string
 }
 
 type AvaliacaoIA = 'bom' | 'regular' | 'ruim'
@@ -172,6 +183,7 @@ function App() {
   const [novoLoteDataCompra, setNovoLoteDataCompra] = useState(new Date().toISOString().slice(0, 10))
   const [novoLoteValor, setNovoLoteValor] = useState(1000)
   const [novoLoteTaxa, setNovoLoteTaxa] = useState(6)
+  const [novoLoteVencimento, setNovoLoteVencimento] = useState('')
 
   const [lciRegistros, setLciRegistros] = useState<RegistroLciLca[]>([])
   const [tesouroRegistros, setTesouroRegistros] = useState<RegistroTesouroIpca[]>([])
@@ -184,7 +196,8 @@ function App() {
   const [isDragging, setIsDragging] = useState(false)
   const [processandoImg, setProcessandoImg] = useState(false)
 
-  // Tesouro Transparente — taxa IPCA+ indicativa do dia
+  // Tesouro Transparente — taxas IPCA+ por vencimento
+  const [titulosIpca, setTitulosIpca] = useState<TituloTD[]>([])
   const [taxaRef, setTaxaRef] = useState<string | null>(null)
   const [taxaLoading, setTaxaLoading] = useState(false)
 
@@ -200,12 +213,20 @@ function App() {
           taxaMediaIndicativa?: number
           dataReferencia?: string
           fonte?: string
+          titulos?: TituloTD[]
         }
         if (payload.ok && payload.taxaMediaIndicativa) {
           setTaxaAtualTesouro(payload.taxaMediaIndicativa)
           setTaxaRef(payload.dataReferencia ?? null)
-          pushNotification('success', 'Taxa atualizada',
-            `IPCA+ indicativa: ${payload.taxaMediaIndicativa}% a.a. (${payload.fonte === 'cache' ? 'cache' : 'Tesouro Transparente'} — ref: ${payload.dataReferencia ?? 'hoje'})`)
+          if (payload.titulos?.length) {
+            setTitulosIpca(payload.titulos)
+            // Selecionar primeiro vencimento disponível no mount
+            if (payload.titulos.length > 0) {
+              setNovoLoteVencimento(payload.titulos[0].vencimento)
+            }
+          }
+          pushNotification('success', 'Taxas atualizadas',
+            `${payload.titulos?.length ?? 0} vencimentos IPCA+ carregados (${payload.fonte === 'cache' ? 'cache' : 'Tesouro Transparente'} — ref: ${payload.dataReferencia ?? 'hoje'})`)
         }
       } catch {
         // Falha silenciosa — mantém o valor default manual
@@ -247,6 +268,7 @@ function App() {
       dataCompra: r.dataCompra,
       valorInvestido: r.valorInvestido,
       taxaContratada: r.taxaContratada,
+      vencimento: r.vencimento ?? '',
     })),
     [tesouroRegistros],
   )
@@ -266,12 +288,19 @@ function App() {
     [lotesTesouroForm],
   )
 
+  // Per-lote: taxa atual específica do vencimento (fallback: média)
+  const taxaParaLote = useCallback((vencimento: string) => {
+    if (!titulosIpca.length || !vencimento) return taxaAtualTesouro
+    const match = titulosIpca.find(t => t.vencimento === vencimento)
+    return match ? match.taxaCompra : taxaAtualTesouro
+  }, [titulosIpca, taxaAtualTesouro])
+
   // Per-lote: Duration Modificada + Convexidade (Fabozzi/CFA Institute)
   const analisesLotes = useMemo<AnaliseTesouroLote[]>(
     () => tesouroRegistros.map((r) =>
-      analisarLote(r.dataCompra, r.valorInvestido, r.taxaContratada, taxaAtualTesouro, durationAnos),
+      analisarLote(r.dataCompra, r.valorInvestido, r.taxaContratada, taxaParaLote(r.vencimento), durationAnos),
     ),
-    [tesouroRegistros, taxaAtualTesouro, durationAnos],
+    [tesouroRegistros, taxaParaLote, durationAnos],
   )
 
   const mtmTotalTesouro = useMemo(
@@ -434,18 +463,19 @@ function App() {
 
     const lotesComNovo = [
       ...lotesTesouroForm,
-      { dataCompra: novoLoteDataCompra, valorInvestido: novoLoteValor, taxaContratada: novoLoteTaxa },
+      { dataCompra: novoLoteDataCompra, valorInvestido: novoLoteValor, taxaContratada: novoLoteTaxa, vencimento: novoLoteVencimento },
     ]
 
     const taxaMediaComNovo = mediasPonderadasPorCapital(lotesComNovo, (l) => l.taxaContratada)
     const dataMediaComNovo = dataMediaPonderada(lotesComNovo)
 
     // Análise do novo lote isolado para snapshot
-    const analiseNovoLote = analisarLote(novoLoteDataCompra, novoLoteValor, novoLoteTaxa, taxaAtualTesouro, durationAnos)
+    const taxaDoVencimento = taxaParaLote(novoLoteVencimento)
+    const analiseNovoLote = analisarLote(novoLoteDataCompra, novoLoteValor, novoLoteTaxa, taxaDoVencimento, durationAnos)
 
     // Análise completa da carteira futura para gerar sinal
     const analisesComNovo = lotesComNovo.map((l) =>
-      analisarLote(l.dataCompra, l.valorInvestido, l.taxaContratada, taxaAtualTesouro, durationAnos),
+      analisarLote(l.dataCompra, l.valorInvestido, l.taxaContratada, taxaParaLote(l.vencimento), durationAnos),
     )
     const diasMediosComNovo = Math.round(
       mediasPonderadasPorCapital(
@@ -469,7 +499,8 @@ function App() {
       dataCompra: novoLoteDataCompra,
       valorInvestido: novoLoteValor,
       taxaContratada: novoLoteTaxa,
-      taxaAtual: taxaAtualTesouro,
+      vencimento: novoLoteVencimento,
+      taxaAtual: taxaDoVencimento,
       diasParaMenorIr: diasIrNovoLote,
       sinal: sinalBinario,
       analise: `MD: ${analiseNovoLote.md.toFixed(2)}a | MTM: R$ ${analiseNovoLote['mtmR$'].toFixed(2)} | ` +
@@ -614,6 +645,7 @@ function App() {
           dataCompra: lote.dataCompra,
           valorInvestido: lote.valorInvestido,
           taxaContratada: lote.taxaContratada,
+          vencimento: '',
           taxaAtual: taxaAtualTesouro,
           diasParaMenorIr: diasIr,
           sinal: sinalBinario,
@@ -1017,6 +1049,18 @@ function App() {
             <label htmlFor="tesouro-data-compra">
               Data da compra
               <input id="tesouro-data-compra" name="purchaseDate" type="date" autoComplete="off" value={novoLoteDataCompra} onChange={(e) => setNovoLoteDataCompra(e.target.value)} />
+            </label>
+
+            <label htmlFor="tesouro-vencimento">
+              Vencimento do título
+              <select id="tesouro-vencimento" name="maturityDate" value={novoLoteVencimento} onChange={(e) => setNovoLoteVencimento(e.target.value)}>
+                {titulosIpca.length === 0 && <option value="">Carregando vencimentos...</option>}
+                {titulosIpca.map(t => (
+                  <option key={t.vencimento} value={t.vencimento}>
+                    IPCA+ {t.vencimento} — {t.taxaCompra.toFixed(2)}% a.a.
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label htmlFor="tesouro-valor-investido">
