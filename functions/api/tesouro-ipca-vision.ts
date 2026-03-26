@@ -39,10 +39,10 @@ Regras de Extração e Conversão:
 5. Não retorne markdown, crases ou explicações. Apenas um array JSON válido listando todos os lotes identificados na imagem.
 `
 
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${GEMINI_API_KEY}`
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent?key=${GEMINI_API_KEY}`
 
     const requestBody = {
-      systemInstruction: {
+      system_instruction: {
         parts: [{ text: systemInstruction }]
       },
       contents: [{
@@ -59,7 +59,10 @@ Regras de Extração e Conversão:
       }],
       generationConfig: {
         temperature: 0.1,
-        responseMimeType: "application/json"
+        responseMimeType: "application/json",
+        thinkingConfig: {
+          thinkingLevel: "HIGH"
+        }
       },
       safetySettings: [
         { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },

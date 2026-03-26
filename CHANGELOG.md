@@ -1,5 +1,9 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.02.04] — 2026-03-26
+### Corrigido
+- **API Multimodal Versionamento**: forçado fallback explícito para identificador do modelo `gemini-pro-latest` e incluído novo property name das features v1beta (`system_instruction` em detrito do padrão REST original) com o framework `thinkingLevel: "HIGH"` assegurando as 10 modern-features de processamento IA estritas.
+
 ## [v01.02.03] — 2026-03-26
 ### Corrigido
 - **Erro 500 no Worker (Vision API)**: substituídas as chamadas do método `Response.json` (incompatível com certas engines locais de Node do Wrangler) pelo utilitário `jsonResponse`, restaurando o fluxo de leitura de extratos no ambiente dev e produção.
