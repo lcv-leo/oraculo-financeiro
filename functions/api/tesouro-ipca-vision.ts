@@ -71,8 +71,8 @@ Regras de Extração e Conversão:
 6. Não retorne markdown, crases ou explicações. Apenas o array JSON.`
 
   // Gemini 3 Pro Preview — modelo com suporte a visão multimodal + thinking
-  // Modelo definido pelo usuário: gemini-3-pro-preview
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${apiKey}`
+  // Modelo definido pelo usuário: gemini-3.1-pro-preview
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${apiKey}`
 
   const geminiBody = {
     system_instruction: {
