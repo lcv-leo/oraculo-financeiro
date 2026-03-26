@@ -12,10 +12,21 @@
 // ─── TRIBUTAÇÃO ──────────────────────────────────────────────────────────────
 
 /**
- * Tabela regressiva de IR para renda fixa tributável (Lei 11.033/2004).
- * Base: dias corridos desde a aplicação.
+ * Alíquota de IR para renda fixa tributável.
+ *
+ * - Investimentos a partir de 01/01/2026: alíquota uniforme de 17,5% (MP 2026).
+ * - Investimentos até 31/12/2025: tabela regressiva (Lei 11.033/2004).
+ *
+ * @param diasCorridos   - Dias desde a aplicação
+ * @param dataCompraISO  - Data de compra ISO (ex: '2026-02-26') para determinar regime
  */
-export function aliquotaIrRegressiva(diasCorridos: number): number {
+export function aliquotaIrRegressiva(diasCorridos: number, dataCompraISO?: string): number {
+  // MP 2026: investimentos a partir de 01/01/2026 têm alíquota uniforme de 17,5%
+  if (dataCompraISO) {
+    const anoCompra = new Date(dataCompraISO).getFullYear()
+    if (anoCompra >= 2026) return 17.5
+  }
+  // Tabela regressiva (Lei 11.033/2004) para investimentos até 31/12/2025
   if (diasCorridos <= 180) return 22.5
   if (diasCorridos <= 360) return 20
   if (diasCorridos <= 720) return 17.5
@@ -54,8 +65,14 @@ export function diasUteisAproximados(diasCorridos: number): number {
   return Math.round(diasCorridos * (252 / 365))
 }
 
-/** Dias corridos restantes até o marco de IR mínimo (720 dias → 15%). */
+/**
+ * Dias corridos restantes até o IR mínimo.
+ * - Pré-2026: 720 dias → 15% (tabela regressiva)
+ * - Pós-2026: alíquota uniforme 17,5% desde o dia 1 (sem regressiva)
+ */
 export function diasParaMenorIr(dataCompraISO: string): number {
+  const anoCompra = new Date(dataCompraISO).getFullYear()
+  if (anoCompra >= 2026) return 0 // Alíquota uniforme 17,5% — sem regressiva
   return Math.max(0, 720 - diasDecorridos(dataCompraISO))
 }
 
@@ -277,7 +294,7 @@ export function analisarLote(
   durationAnos: number,
 ): AnaliseTesouroLote {
   const dias = diasDecorridos(dataCompra)
-  const irAtual = aliquotaIrRegressiva(dias)
+  const irAtual = aliquotaIrRegressiva(dias, dataCompra)
   const diasIrMin = diasParaMenorIr(dataCompra)
 
   const md = durationModificada(durationAnos, taxaContratada)
@@ -387,19 +404,20 @@ export function gerarSinalTesouro(
   }
 
   // Há ganho relevante; verificar eficiência fiscal
-  const irJaOtimo = aliquotaIrMedia <= 15 || diasMediosParaMenorIr === 0
+  // Pós-2026: IR é 17,5% fixo (sem regressiva), logo IR já é mínimo desde o dia 1
+  const irMinimo = aliquotaIrMedia <= 15 || aliquotaIrMedia <= 17.5 || diasMediosParaMenorIr === 0
 
-  if (!irJaOtimo && diasMediosParaMenorIr > 90) {
+  if (!irMinimo && diasMediosParaMenorIr > 90) {
     return {
       sinal: 'AGUARDAR IR',
       forca: quedaTaxa > 0.5 ? 'forte' : 'moderado',
-      texto: `Aguardar ${diasMediosParaMenorIr} dias para atingir IR mínimo (15%).`,
+      texto: `Aguardar ${diasMediosParaMenorIr} dias para atingir IR mínimo.`,
       subTexto: `Economia fiscal esperada: R$ ${economiaIrTotal.toFixed(2)}. ` +
         'Vender agora tem custo tributário alto — a não ser que haja necessidade de liquidez.',
     }
   }
 
-  if (!irJaOtimo && diasMediosParaMenorIr <= 90) {
+  if (!irMinimo && diasMediosParaMenorIr <= 90) {
     return {
       sinal: 'AVALIAR',
       forca: 'moderado',
@@ -410,11 +428,13 @@ export function gerarSinalTesouro(
   }
 
   // IR já no mínimo — avaliar magnitude
+  const irLabel = aliquotaIrMedia <= 15 ? '15%' : '17,5%'
+  const fatorLiquido = 1 - aliquotaIrMedia / 100
   return {
     sinal: 'VENDER',
     forca: quedaTaxa > 0.5 ? 'forte' : 'moderado',
-    texto: 'Condições favoráveis: taxa caiu e IR já está no mínimo (15%).',
-    subTexto: `Ganho líquido estimado: R$ ${mtmTotal > 0 ? (mtmTotal * 0.85).toFixed(2) : '0,00'}. ` +
+    texto: `Condições favoráveis: taxa caiu e IR já está no mínimo (${irLabel}).`,
+    subTexto: `Ganho líquido estimado: R$ ${mtmTotal > 0 ? (mtmTotal * fatorLiquido).toFixed(2) : '0,00'}. ` +
       'Janela de venda ativa — realize o lucro ou reaplique em taxa mais alta.',
   }
 }

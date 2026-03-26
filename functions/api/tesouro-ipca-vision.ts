@@ -42,27 +42,36 @@ export const onRequestPost = async ({ request, env }: Context) => {
     return jsonResponse({ ok: false, error: 'Imagem base64 e mimeType são obrigatórios.' }, 400)
   }
 
-  const systemInstruction = `Você é um consultor financeiro especialista em marcação a mercado do Tesouro Direto.
-Extraia os dados do extrato do tesouro IPCA+ enviado em imagem.
+  const systemInstruction = `Você é um consultor financeiro especialista em marcação a mercado do Tesouro Direto brasileiro.
+Extraia TODOS os lotes de investimento do extrato do Tesouro IPCA+ enviado na imagem.
 
-Retorne EXATAMENTE um array JSON contendo objetos com o formato:
+ATENÇÃO: as datas no extrato estão em formato BRASILEIRO: dd/mm/aaaa (dia/mês/ano).
+Exemplo: "26/02/2026" significa 26 de fevereiro de 2026 e deve ser convertido para "2026-02-26".
+
+Retorne EXATAMENTE um array JSON contendo um objeto para CADA lote encontrado na imagem:
 [
   {
-    "dataCompra": "YYYY-MM-DD",
-    "valorInvestido": 12500.50,
-    "taxaContratada": 6.15
+    "dataCompra": "2026-02-26",
+    "valorInvestido": 15491.04,
+    "taxaContratada": 7.41
+  },
+  {
+    "dataCompra": "2026-03-03",
+    "valorInvestido": 1011.09,
+    "taxaContratada": 7.59
   }
 ]
 
 Regras de Extração e Conversão:
-1. dataCompra: Encontre a data de aplicação/compra e converta para formato YYYY-MM-DD.
-2. valorInvestido: Encontre o "Valor investido" original (NÃO O VALOR LÍQUIDO ATUAL). Converta para número (1250.50).
-3. taxaContratada: Encontre a taxa IPCA+ de compra (ex: IPCA + 6,15%). Converta para número (6.15).
-4. Ignore Tesouro Selic e Tesouro Prefixado. Extraia apenas Tesouro IPCA+.
-5. Não retorne markdown, crases ou explicações. Apenas um array JSON válido listando todos os lotes identificados na imagem.`
+1. dataCompra: Encontre a coluna "Data da Aplicação" ou "Data de Compra". O formato é dd/mm/aaaa (BRASILEIRO). Converta para YYYY-MM-DD (ISO). ATENÇÃO: o ano está nos 4 últimos dígitos (ex: 26/02/2026 → ano é 2026, NÃO 2024).
+2. valorInvestido: Encontre a coluna "Valor Investido" (AxB). Use o formato numérico com ponto decimal (ex: 15.491,04 → 15491.04). NÃO use o preço unitário do título.
+3. taxaContratada: Encontre "Rentabilidade Contratada" (ex: IPCA + 7,41%). Extraia apenas o número após o "+". Converta vírgula para ponto (7,41 → 7.41).
+4. Extraia TODOS os lotes da tabela — cada linha é um lote separado.
+5. Ignore Tesouro Selic e Tesouro Prefixado. Extraia apenas Tesouro IPCA+.
+6. Não retorne markdown, crases ou explicações. Apenas o array JSON.`
 
-  // Gemini 2.5 Pro — último modelo Pro com suporte nativo a visão multimodal + thinking
-  // Ref: https://ai.google.dev/gemini-api/docs/models#gemini-2.5-pro
+  // Gemini 3 Pro Preview — modelo com suporte a visão multimodal + thinking
+  // Modelo definido pelo usuário: gemini-3-pro-preview
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${apiKey}`
 
   const geminiBody = {
