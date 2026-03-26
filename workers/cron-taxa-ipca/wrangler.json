@@ -1,0 +1,15 @@
+{
+  "name": "cron-taxa-ipca",
+  "main": "index.ts",
+  "compatibility_date": "2026-03-19",
+  "triggers": {
+    "crons": ["0 5 * * *"]
+  },
+  "d1_databases": [
+    {
+      "binding": "BIGDATA_DB",
+      "database_name": "bigdata_db",
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ]
+}
