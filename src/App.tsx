@@ -131,6 +131,37 @@ function App() {
   const [isDragging, setIsDragging] = useState(false)
   const [processandoImg, setProcessandoImg] = useState(false)
 
+  // ANBIMA Feed — taxa IPCA+ indicativa do dia
+  const [anbimaRef, setAnbimaRef] = useState<string | null>(null)
+  const [anbimaLoading, setAnbimaLoading] = useState(false)
+
+  // Auto-fetch taxa ANBIMA ao montar
+  useEffect(() => {
+    const fetchTaxaAnbima = async () => {
+      setAnbimaLoading(true)
+      try {
+        const res = await fetch('/api/taxa-ipca-atual')
+        if (!res.ok) return
+        const payload = await res.json() as {
+          ok: boolean
+          taxaMediaIndicativa?: number
+          dataReferencia?: string
+        }
+        if (payload.ok && payload.taxaMediaIndicativa) {
+          setTaxaAtualTesouro(payload.taxaMediaIndicativa)
+          setAnbimaRef(payload.dataReferencia ?? null)
+          pushNotification('success', 'Taxa ANBIMA atualizada',
+            `Taxa IPCA+ indicativa: ${payload.taxaMediaIndicativa}% a.a. (ref: ${payload.dataReferencia ?? 'hoje'})`)
+        }
+      } catch {
+        // Falha silenciosa — mantém o valor default manual
+      } finally {
+        setAnbimaLoading(false)
+      }
+    }
+    void fetchTaxaAnbima()
+  }, [])
+
   // ── LCI/LCA ─────────────────────────────────────────────────────────────
   const aliquotaIr = useMemo(() => aliquotaIrRegressiva(prazoDias), [prazoDias])
   const iofPct = useMemo(() => aliquotaIof(prazoDias), [prazoDias])
@@ -825,6 +856,8 @@ function App() {
           <div className="grid">
             <label htmlFor="tesouro-taxa-atual">
               Taxa IPCA+ ofertada hoje (% a.a.)
+              {anbimaLoading && <small style={{ color: '#1a73e8', marginLeft: '0.5rem' }}>⏳ Buscando ANBIMA...</small>}
+              {anbimaRef && !anbimaLoading && <small style={{ color: '#34a853', marginLeft: '0.5rem' }}>✓ ANBIMA {anbimaRef}</small>}
               <input id="tesouro-taxa-atual" name="currentTesouroRate" type="number" min={0.01} step={0.01} autoComplete="off" inputMode="decimal" value={taxaAtualTesouro} onChange={(e) => setTaxaAtualTesouro(Number(e.target.value))} />
             </label>
 
