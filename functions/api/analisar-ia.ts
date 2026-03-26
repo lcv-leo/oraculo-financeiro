@@ -1,6 +1,6 @@
 // Módulo: oraculo-financeiro/functions/api/analisar-ia.ts
 // Versão: v01.01.00
-// Descrição: Upgrade Gemini API — modelo gemini-pro-latest (auto-atualiza), v1beta, thinkingLevel HIGH, safetySettings (BLOCK_NONE para conteúdo financeiro), retry com 1 tentativa extra. Prompt fiduciário preservado.
+// Descrição: Upgrade Gemini API — modelo gemini-3-pro-preview (auto-atualiza), v1beta, thinkingLevel HIGH, safetySettings (BLOCK_NONE para conteúdo financeiro), retry com 1 tentativa extra. Prompt fiduciário preservado.
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -271,7 +271,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
 
   // Alias "latest" aponta sempre para o Pro mais recente
   // Ref: https://ai.google.dev/gemini-api/docs/models#latest
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent?key=${apiKey}`
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${apiKey}`
 
   const geminiBody = {
     system_instruction: {

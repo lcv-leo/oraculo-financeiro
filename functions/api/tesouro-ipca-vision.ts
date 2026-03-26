@@ -63,7 +63,7 @@ Regras de Extração e Conversão:
 
   // Gemini 2.5 Pro — último modelo Pro com suporte nativo a visão multimodal + thinking
   // Ref: https://ai.google.dev/gemini-api/docs/models#gemini-2.5-pro
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent?key=${apiKey}`
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${apiKey}`
 
   const geminiBody = {
     system_instruction: {
