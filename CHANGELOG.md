@@ -1,5 +1,9 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.02.03] — 2026-03-26
+### Corrigido
+- **Erro 500 no Worker (Vision API)**: substituídas as chamadas do método `Response.json` (incompatível com certas engines locais de Node do Wrangler) pelo utilitário `jsonResponse`, restaurando o fluxo de leitura de extratos no ambiente dev e produção.
+
 ## [v01.02.02] — 2026-03-26
 ### Removido
 - **Quality Gates**: removida a configuração estrita do Github Actions (`quality-gates.yml`) que bloqueava merges na branch principal por linting e build, permitindo fluidez de deploy para o app.

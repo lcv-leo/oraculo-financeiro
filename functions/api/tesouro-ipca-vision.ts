@@ -1,14 +1,21 @@
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+  })
+}
+
 export async function onRequestPost({ request, env }: { request: Request; env: any }) {
   try {
     const payload = await request.json() as { imageBase64: string, mimeType: string }
 
     if (!payload.imageBase64 || !payload.mimeType) {
-      return Response.json({ ok: false, error: 'Imagem base64 e mimeType são obrigatórios.' }, { status: 400 })
+      return jsonResponse({ ok: false, error: 'Imagem base64 e mimeType são obrigatórios.' }, 400)
     }
 
     const GEMINI_API_KEY = env.GEMINI_API_KEY
     if (!GEMINI_API_KEY) {
-      return Response.json({ ok: false, error: 'GEMINI_API_KEY não configurada no ambiente.' }, { status: 500 })
+      return jsonResponse({ ok: false, error: 'GEMINI_API_KEY não configurada no ambiente.' }, 500)
     }
 
     const systemInstruction = `
@@ -73,9 +80,9 @@ Regras de Extração e Conversão:
       const gErr = await gdResponse.text()
       try {
         const jErr = JSON.parse(gErr)
-        return Response.json({ ok: false, error: jErr.error?.message ?? 'Falha na API Gemini.' }, { status: gdResponse.status })
+        return jsonResponse({ ok: false, error: jErr.error?.message ?? 'Falha na API Gemini.' }, gdResponse.status)
       } catch {
-        return Response.json({ ok: false, error: `Falha na API Gemini (HTTP ${gdResponse.status})` }, { status: gdResponse.status })
+        return jsonResponse({ ok: false, error: `Falha na API Gemini (HTTP ${gdResponse.status})` }, gdResponse.status)
       }
     }
 
@@ -83,7 +90,7 @@ Regras de Extração e Conversão:
     const rawText = gdData.candidates?.[0]?.content?.parts?.[0]?.text
 
     if (!rawText) {
-      return Response.json({ ok: false, error: 'A resposta da IA veio vazia ou foi bloqueada pelos filtros de segurança.' }, { status: 400 })
+      return jsonResponse({ ok: false, error: 'A resposta da IA veio vazia ou foi bloqueada pelos filtros de segurança.' }, 400)
     }
 
     let extractedData = []
@@ -93,12 +100,12 @@ Regras de Extração e Conversão:
         throw new Error('A IA não retornou um array JSON.')
       }
     } catch (err) {
-      return Response.json({ ok: false, error: 'A IA não retornou um formato JSON válido.', debug: rawText }, { status: 400 })
+      return jsonResponse({ ok: false, error: 'A IA não retornou um formato JSON válido.', debug: rawText }, 400)
     }
 
-    return Response.json({ ok: true, data: extractedData })
+    return jsonResponse({ ok: true, data: extractedData })
 
   } catch (error: any) {
-    return Response.json({ ok: false, error: error.message ?? 'Erro interno no processamento da imagem.' }, { status: 500 })
+    return jsonResponse({ ok: false, error: error.message ?? 'Erro interno no processamento da imagem.' }, 500)
   }
 }
