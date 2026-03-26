@@ -11,5 +11,11 @@
       "database_name": "bigdata_db",
       "database_id": "6a71b62e-8ab9-45e6-a867-c0d4e6a56269"
     }
-  ]
+  ],
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
+  }
 }
