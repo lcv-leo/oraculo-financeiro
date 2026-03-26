@@ -195,7 +195,7 @@ export const onRequestDelete = async ({ env, request }: Context) => {
       return jsonResponse({ ok: false, error: 'Parâmetro id é obrigatório para exclusão.' }, 400)
     }
 
-    await db.prepare('DELETE FROM tesouro_ipca_lotes WHERE id = ?1').bind(id).run()
+    await db.prepare('DELETE FROM oraculo_tesouro_ipca_lotes WHERE id = ?1').bind(id).run()
     return jsonResponse({ ok: true })
   } catch (error) {
     return jsonResponse(
