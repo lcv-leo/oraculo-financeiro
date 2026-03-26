@@ -509,16 +509,66 @@ function App() {
         throw new Error(payload.error ?? 'Falha na IA Vision.')
       }
 
-      if (payload.data && payload.data.length > 0) {
-        // Preenche o formulário com o primeiro lote encontrado
-        const lote = payload.data[0]
-        setNovoLoteDataCompra(lote.dataCompra)
-        setNovoLoteValor(lote.valorInvestido)
-        setNovoLoteTaxa(lote.taxaContratada)
-        pushNotification('success', 'Extração concluída', `Lote de R$ ${lote.valorInvestido} extraído com sucesso! Verifique os dados e clique em Salvar.`)
-      } else {
-        pushNotification('warning', 'Nenhum dado encontrado', 'A IA não conseguiu identificar os dados de um lote do Tesouro IPCA+ na imagem.')
+      if (!payload.data || payload.data.length === 0) {
+        pushNotification('warning', 'Nenhum dado encontrado', 'A IA não conseguiu identificar lotes do Tesouro IPCA+ na imagem.')
+        return
       }
+
+      // Salvar TODOS os lotes extraídos automaticamente no D1
+      let salvos = 0
+      let erros = 0
+
+      for (const lote of payload.data) {
+        const diasIr = calcDiasParaMenorIr(lote.dataCompra)
+        const analise = analisarLote(lote.dataCompra, lote.valorInvestido, lote.taxaContratada, taxaAtualTesouro, durationAnos)
+        const sinalBinario: 'vender' | 'manter' = analise['mtmR$'] > 0 ? 'vender' : 'manter'
+
+        const registro: RegistroTesouroIpca = {
+          id: crypto.randomUUID(),
+          criadoEm: new Date().toISOString(),
+          dataCompra: lote.dataCompra,
+          valorInvestido: lote.valorInvestido,
+          taxaContratada: lote.taxaContratada,
+          taxaAtual: taxaAtualTesouro,
+          diasParaMenorIr: diasIr,
+          sinal: sinalBinario,
+          analise: `MD: ${analise.md.toFixed(2)}a | MTM: R$ ${analise['mtmR$'].toFixed(2)} | IR: ${analise.aliquotaIrAtual}% | Vision OCR`,
+        }
+
+        try {
+          const postRes = await fetch('/api/tesouro-ipca', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(registro),
+          })
+
+          if (postRes.ok) {
+            const postPayload = await postRes.json() as ApiCreateResponse<RegistroTesouroIpca>
+            setTesouroRegistros((prev) => [postPayload.data, ...prev].slice(0, 200))
+            salvos++
+          } else {
+            erros++
+          }
+        } catch {
+          erros++
+        }
+      }
+
+      // Preencher formulário com o último lote para referência visual
+      const ultimo = payload.data[payload.data.length - 1]
+      setNovoLoteDataCompra(ultimo.dataCompra)
+      setNovoLoteValor(ultimo.valorInvestido)
+      setNovoLoteTaxa(ultimo.taxaContratada)
+
+      if (salvos > 0) {
+        pushNotification('success', 'Extração concluída',
+          `${salvos} lote${salvos > 1 ? 's' : ''} extraído${salvos > 1 ? 's' : ''} e salvo${salvos > 1 ? 's' : ''} no D1.${erros > 0 ? ` (${erros} erro${erros > 1 ? 's' : ''})` : ''}`)
+      }
+      if (erros > 0 && salvos === 0) {
+        pushNotification('error', 'Falha ao salvar', 'Nenhum lote extraído pôde ser salvo no banco de dados.')
+      }
+
+      setActiveTab('tesouro-ipca')
     } catch (error) {
       pushNotification('error', 'Erro no Vision', error instanceof Error ? error.message : 'Falha na comunicação com o Gemini.')
     } finally {
@@ -752,14 +802,23 @@ function App() {
           
           <h2>Tesouro Direto IPCA+: Marcação a Mercado</h2>
 
-          <div className="feature-banner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem', backgroundColor: '#e8f0fe', borderRadius: '16px', marginBottom: '2rem', border: '1px solid #d2e3fc' }}>
+          <div className="feature-banner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem', backgroundColor: processandoImg ? '#fff3cd' : '#e8f0fe', borderRadius: '16px', marginBottom: '2rem', border: `1px solid ${processandoImg ? '#ffc107' : '#d2e3fc'}`, transition: 'all 0.3s ease', position: 'relative', overflow: 'hidden' }}>
+            {processandoImg && (
+              <div style={{ position: 'absolute', bottom: 0, left: 0, height: '3px', backgroundColor: '#1a73e8', animation: 'progressBar 2s ease-in-out infinite', width: '100%' }} />
+            )}
             <div className="feature-info">
-              <h3 style={{ margin: 0, color: '#1a73e8', fontSize: '1.1rem' }}>✦ Auto-Preenchimento IA</h3>
-              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: '#3c4043' }}>Anexe um print do extrato. O Gemini identificará os dados sozinho.</p>
+              <h3 style={{ margin: 0, color: processandoImg ? '#856404' : '#1a73e8', fontSize: '1.1rem' }}>
+                {processandoImg ? '⏳ Gemini processando...' : '✦ Auto-Preenchimento IA'}
+              </h3>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: processandoImg ? '#664d03' : '#3c4043' }}>
+                {processandoImg
+                  ? 'Extraindo dados do extrato. Isso pode levar alguns segundos...'
+                  : 'Anexe um print do extrato. O Gemini identificará os dados sozinho.'}
+              </p>
             </div>
-            <label className="btn-ia" style={{ cursor: 'pointer', margin: 0, padding: '0.5rem 1.25rem' }}>
-              Upload Imagem
-              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleInputFileChange} />
+            <label className="btn-ia" style={{ cursor: processandoImg ? 'not-allowed' : 'pointer', margin: 0, padding: '0.5rem 1.25rem', opacity: processandoImg ? 0.6 : 1, pointerEvents: processandoImg ? 'none' : 'auto' }}>
+              {processandoImg ? '⏳ Processando...' : 'Upload Imagem'}
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleInputFileChange} disabled={processandoImg} />
             </label>
           </div>
 

@@ -959,3 +959,10 @@ td {
   letter-spacing: 0.15em;
   text-transform: uppercase;
 }
+
+/* ── Vision Upload Progress Bar ────────────────────────────────────────────── */
+@keyframes progressBar {
+  0%   { transform: translateX(-100%); }
+  50%  { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
+}
