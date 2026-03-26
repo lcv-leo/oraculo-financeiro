@@ -107,9 +107,6 @@ async function parseApiError(response: Response) {
 function App() {
   const [activeTab, setActiveTab] = useState<TabId>('tesouro-ipca')
   const [loading, setLoading] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedRegistroId, setSelectedRegistroId] = useState<string | null>(null)
-  const [deleteModalId, setDeleteModalId] = useState<string | null>(null)
 
   const [prazoDias, setPrazoDias] = useState(365)
   const [taxaLciLca, setTaxaLciLca] = useState(90)
@@ -127,12 +124,8 @@ function App() {
   const [tesouroRegistros, setTesouroRegistros] = useState<RegistroTesouroIpca[]>([])
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('checking')
-  const [page, setPage] = useState(1)
-  const [pageSize] = useState(25)
-  const [totalRegistros, setTotalRegistros] = useState(0)
   const [analisandoIa, setAnalisandoIa] = useState(false)
   const [analiseIa, setAnaliseIa] = useState<AnaliseIA | null>(null)
-
 
   // ── LCI/LCA ─────────────────────────────────────────────────────────────
   const aliquotaIr = useMemo(() => aliquotaIrRegressiva(prazoDias), [prazoDias])
@@ -249,38 +242,7 @@ function App() {
     [taxaMediaTesouro, taxaAtualTesouro, diasMediosParaMenorIr, aliquotaIrMediaTesouro, mtmTotalTesouro, economiaIrTotal],
   )
 
-  const registrosFiltrados = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase()
-    if (!term) {
-      return activeTab === 'lci-lca' ? lciRegistros : tesouroRegistros
-    }
 
-    if (activeTab === 'lci-lca') {
-      return lciRegistros.filter((registro) => {
-        const dataHora = new Date(registro.criadoEm).toLocaleString('pt-BR').toLowerCase()
-        return (
-          dataHora.includes(term)
-          || String(registro.prazoDias).includes(term)
-          || String(registro.taxaLciLca).includes(term)
-          || String(registro.aporte).includes(term)
-          || String(registro.cdbEquivalente).includes(term)
-        )
-      })
-    }
-
-    return tesouroRegistros.filter((registro) => {
-      const dataHora = new Date(registro.criadoEm).toLocaleString('pt-BR').toLowerCase()
-      return (
-        dataHora.includes(term)
-        || registro.dataCompra.includes(term)
-        || String(registro.valorInvestido).includes(term)
-        || String(registro.taxaContratada).includes(term)
-        || String(registro.taxaAtual).includes(term)
-        || registro.sinal.includes(term)
-        || registro.analise.toLowerCase().includes(term)
-      )
-    })
-  }, [activeTab, lciRegistros, tesouroRegistros, searchTerm])
 
   const pushNotification = (tone: NotificationTone, title: string, message: string) => {
     const item: NotificationItem = {
@@ -296,13 +258,12 @@ function App() {
     }, 4200)
   }
 
-  const carregarRegistros = async (targetPage = page) => {
+  const carregarRegistros = async () => {
     setLoading(true)
 
     try {
-      const offset = (targetPage - 1) * pageSize
       const [lciResponse, tesouroResponse] = await Promise.all([
-        fetch(`/api/registros-lci-cdb?limit=${pageSize}&offset=${offset}`),
+        fetch('/api/registros-lci-cdb?limit=200'),
         fetch('/api/tesouro-ipca')
       ])
 
@@ -319,8 +280,6 @@ function App() {
 
       setLciRegistros(lciPayload.data)
       setTesouroRegistros(tesouroPayload.data)
-      setTotalRegistros(Number(lciPayload.total ?? lciPayload.data.length))
-      setPage(targetPage)
       setConnectionStatus('online')
     } catch {
       setConnectionStatus('offline')
@@ -331,7 +290,6 @@ function App() {
 
   useEffect(() => {
     void carregarRegistros()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => { setAnaliseIa(null) }, [activeTab])
@@ -368,8 +326,7 @@ function App() {
       }
 
       const payload = await response.json() as ApiCreateResponse<RegistroLciLca>
-      setLciRegistros((previous) => [payload.data, ...previous].slice(0, pageSize))
-      setTotalRegistros((previous) => previous + 1)
+      setLciRegistros((previous) => [payload.data, ...previous].slice(0, 200))
       pushNotification('success', 'Registro salvo', 'Dados gravados com sucesso no D1 financeiro-db.')
     } catch (error) {
       pushNotification('error', 'Erro ao salvar', error instanceof Error ? error.message : 'Não foi possível salvar no D1.')
@@ -456,75 +413,9 @@ function App() {
     }
   }
 
-  const handleCarregarNoFrameLci = (registro: RegistroLciLca) => {
-    setPrazoDias(registro.prazoDias)
-    setTaxaLciLca(registro.taxaLciLca)
-    setAporte(registro.aporte)
-    setSelectedRegistroId(registro.id)
-    setActiveTab('lci-lca')
-    pushNotification('info', 'Registro carregado', 'Parâmetros aplicados no frame principal.')
-  }
 
-  const handleCarregarNoFrameTesouro = (registro: RegistroTesouroIpca) => {
-    setNovoLoteDataCompra(registro.dataCompra)
-    setNovoLoteValor(registro.valorInvestido)
-    setNovoLoteTaxa(registro.taxaContratada)
-    setTaxaAtualTesouro(registro.taxaAtual)
-    setSelectedRegistroId(registro.id)
-    setActiveTab('tesouro-ipca')
-    pushNotification('info', 'Lote carregado', 'Parâmetros do lote aplicados no módulo Tesouro IPCA+.')
-  }
 
-  const handleExcluirRegistroLci = async (id: string) => {
-    setLoading(true)
 
-    try {
-      const response = await fetch(`/api/registros-lci-cdb?id=${encodeURIComponent(id)}`, {
-        method: 'DELETE'
-      })
-
-      if (!response.ok) {
-        throw new Error(await parseApiError(response))
-      }
-
-      setLciRegistros((previous) => previous.filter((item) => item.id !== id))
-      setTotalRegistros((previous) => Math.max(previous - 1, 0))
-      if (selectedRegistroId === id) {
-        setSelectedRegistroId(null)
-      }
-      pushNotification('success', 'Registro excluído', 'Item removido com sucesso da financeiro-db.')
-    } catch (error) {
-      pushNotification('error', 'Falha na exclusão', error instanceof Error ? error.message : 'Erro ao excluir registro.')
-    } finally {
-      setLoading(false)
-      setDeleteModalId(null)
-    }
-  }
-
-  const handleExcluirRegistroTesouro = async (id: string) => {
-    setLoading(true)
-
-    try {
-      const response = await fetch(`/api/tesouro-ipca?id=${encodeURIComponent(id)}`, {
-        method: 'DELETE'
-      })
-
-      if (!response.ok) {
-        throw new Error(await parseApiError(response))
-      }
-
-      setTesouroRegistros((previous) => previous.filter((item) => item.id !== id))
-      if (selectedRegistroId === id) {
-        setSelectedRegistroId(null)
-      }
-      pushNotification('success', 'Lote excluído', 'Lote removido com sucesso da financeiro-db.')
-    } catch (error) {
-      pushNotification('error', 'Falha na exclusão', error instanceof Error ? error.message : 'Erro ao excluir lote.')
-    } finally {
-      setLoading(false)
-      setDeleteModalId(null)
-    }
-  }
 
   const handleAnalisarIa = async () => {
     setAnalisandoIa(true)
@@ -980,152 +871,7 @@ function App() {
         </section>
       )}
 
-      <footer className="footer-table panel">
-        <h2>Registros — {activeTab === 'lci-lca' ? 'LCI/LCA' : 'Tesouro IPCA+'}</h2>
-        <p className="legend">Clique em um registro para carregar no frame principal. Use a lixeira para excluir.</p>
 
-        <div className="table-toolbar">
-          <input
-            id="records-search"
-            name="recordsSearch"
-            type="text"
-            autoComplete="off"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Filtrar por data, prazo, CDI ou aporte"
-            aria-label="Filtrar registros"
-          />
-          <small>{registrosFiltrados.length} registro(s)</small>
-        </div>
-
-        <div className="table-wrapper" role="region" aria-label="Tabela de registros LCI/CDB">
-          <table>
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Hora</th>
-                {activeTab === 'lci-lca' ? (
-                  <>
-                    <th>Prazo</th>
-                    <th>LCI/LCA (% CDI)</th>
-                    <th>Eq. CDB</th>
-                  </>
-                ) : (
-                  <>
-                    <th>Compra</th>
-                    <th>Taxa Contratada</th>
-                    <th>Taxa Atual</th>
-                  </>
-                )}
-                <th>Excluir</th>
-              </tr>
-            </thead>
-            <tbody>
-              {registrosFiltrados.length === 0 ? (
-                <tr>
-                  <td colSpan={6}>Nenhum registro encontrado para o filtro atual.</td>
-                </tr>
-              ) : (
-                registrosFiltrados.map((registro) => {
-                  const date = new Date((registro as RegistroBase).criadoEm)
-                  const data = date.toLocaleDateString('pt-BR')
-                  const hora = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-
-                  return (
-                    <tr
-                      key={(registro as RegistroBase).id}
-                      onClick={() => {
-                        if (activeTab === 'lci-lca') {
-                          handleCarregarNoFrameLci(registro as RegistroLciLca)
-                        } else {
-                          handleCarregarNoFrameTesouro(registro as RegistroTesouroIpca)
-                        }
-                      }}
-                      className={selectedRegistroId === (registro as RegistroBase).id ? 'clickable-row selected-row' : 'clickable-row'}
-                    >
-                      <td>{data}</td>
-                      <td>{hora}</td>
-                      {activeTab === 'lci-lca' ? (
-                        <>
-                          <td>{(registro as RegistroLciLca).prazoDias}d</td>
-                          <td>{(registro as RegistroLciLca).taxaLciLca.toFixed(2)}%</td>
-                          <td>{(registro as RegistroLciLca).cdbEquivalente.toFixed(2)}%</td>
-                        </>
-                      ) : (
-                        <>
-                          <td>{(registro as RegistroTesouroIpca).dataCompra}</td>
-                          <td>{(registro as RegistroTesouroIpca).taxaContratada.toFixed(2)}%</td>
-                          <td>{(registro as RegistroTesouroIpca).taxaAtual.toFixed(2)}%</td>
-                        </>
-                      )}
-                      <td>
-                        <button
-                          type="button"
-                          className="icon-button"
-                          title="Excluir registro"
-                          aria-label="Excluir registro"
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            setDeleteModalId((registro as RegistroBase).id)
-                          }}
-                        >
-                          🗑️
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="pagination-bar">
-          <button
-            type="button"
-            className="ghost"
-            disabled={page <= 1 || loading}
-            onClick={() => void carregarRegistros(page - 1)}
-          >
-            ← Anterior
-          </button>
-          <span>
-            Página {page} de {Math.max(1, Math.ceil(totalRegistros / pageSize))}
-          </span>
-          <button
-            type="button"
-            className="ghost"
-            disabled={page >= Math.max(1, Math.ceil(totalRegistros / pageSize)) || loading}
-            onClick={() => void carregarRegistros(page + 1)}
-          >
-            Próxima →
-          </button>
-        </div>
-      </footer>
-
-      {deleteModalId && (
-        <div className="modal-backdrop" role="presentation">
-          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
-            <h3 id="delete-modal-title">Excluir registro?</h3>
-            <p>Essa ação remove o item da base financeiro-db e não pode ser desfeita.</p>
-            <div className="modal-actions">
-              <button type="button" className="ghost" onClick={() => setDeleteModalId(null)}>Cancelar</button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (activeTab === 'lci-lca') {
-                    void handleExcluirRegistroLci(deleteModalId)
-                  } else {
-                    void handleExcluirRegistroTesouro(deleteModalId)
-                  }
-                }}
-              >
-                Excluir
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <footer className="app-version-footer">
         <span>{APP_VERSION}</span>

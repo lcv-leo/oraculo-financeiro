@@ -1,7 +1,10 @@
 # Changelog — Oráculo Financeiro
 
-## [v01.02.00] — 2026-03-24
+## [v01.02.00] — 2026-03-26
 ### Alterado
+- **Redesign UI/UX Completo**: transição de glassmorphisms pesados para a filosofia sólida `Tiptap.dev` (Google Blue, Pill buttons, Solid Cards 30px radius, fonte Inter).
+- **Adequação WCAG/eMAG**: inputs validados para id/name e autocomplete.
+- **Migração de Frontend para Admin**: as tabelas de histórico persistente foram deletadas do frontend (`App.tsx`), delegando a leitura e exclusão para a matriz do Admin-app.
 - Migração de D1 para `bigdata_db` com prefixação de tabelas (`oraculo_lci_cdb_registros`, `oraculo_auditorias_ia`, `oraculo_tesouro_ipca_lotes`)
 
 ### Infra
