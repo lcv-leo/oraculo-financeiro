@@ -5,6 +5,7 @@ interface D1Prepared {
     run: () => Promise<unknown>
   }
   all: () => Promise<D1Result>
+  run: () => Promise<unknown>
 }
 
 interface D1DatabaseLike {
@@ -28,6 +29,7 @@ type LoteTesouro = {
   dataCompra: string
   valorInvestido: number
   taxaContratada: number
+  vencimento: string
   taxaAtual: number
   diasParaMenorIr: number
   sinal: Recomendacao
@@ -64,6 +66,7 @@ export const onRequestGet = async ({ env }: Context) => {
         data_compra AS dataCompra,
         valor_investido AS valorInvestido,
         taxa_contratada AS taxaContratada,
+        COALESCE(vencimento, '') AS vencimento,
         taxa_atual AS taxaAtual,
         dias_para_menor_ir AS diasParaMenorIr,
         recomendacao,
@@ -79,6 +82,7 @@ export const onRequestGet = async ({ env }: Context) => {
       dataCompra: string
       valorInvestido: number
       taxaContratada: number
+      vencimento: string
       taxaAtual: number
       diasParaMenorIr: number
       recomendacao: Recomendacao
@@ -89,6 +93,7 @@ export const onRequestGet = async ({ env }: Context) => {
       dataCompra: item.dataCompra,
       valorInvestido: item.valorInvestido,
       taxaContratada: item.taxaContratada,
+      vencimento: item.vencimento ?? '',
       taxaAtual: item.taxaAtual,
       diasParaMenorIr: item.diasParaMenorIr,
       sinal: item.recomendacao,
@@ -115,6 +120,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
     const dataCompra = String(payload.dataCompra ?? '').trim()
     const valorInvestido = Number(payload.valorInvestido)
     const taxaContratada = Number(payload.taxaContratada)
+    const vencimento = String(payload.vencimento ?? '').trim()
     const taxaAtual = Number(payload.taxaAtual)
     const diasParaMenorIr = Number(payload.diasParaMenorIr)
     const recomendacao = String(payload.sinal ?? '').trim() as Recomendacao
@@ -138,11 +144,12 @@ export const onRequestPost = async ({ env, request }: Context) => {
         data_compra,
         valor_investido,
         taxa_contratada,
+        vencimento,
         taxa_atual,
         dias_para_menor_ir,
         recomendacao,
         observacao
-      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`
+      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`
     )
       .bind(
         id,
@@ -150,6 +157,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
         dataCompra,
         valorInvestido,
         taxaContratada,
+        vencimento,
         taxaAtual,
         diasParaMenorIr,
         recomendacao,
@@ -166,6 +174,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
           dataCompra,
           valorInvestido,
           taxaContratada,
+          vencimento,
           taxaAtual,
           diasParaMenorIr,
           sinal: recomendacao,
