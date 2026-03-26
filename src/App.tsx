@@ -2,7 +2,7 @@
 // Versão: v01.02.00
 // Descrição: Frontend do Oráculo Financeiro — análise LCI/LCA e Tesouro IPCA+ com IA Gemini.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import {
   aliquotaIrRegressiva,
@@ -133,16 +133,13 @@ function TaxaInput({ value, onChange, ...props }: {
   const [rawText, setRawText] = useState(() =>
     value === 0 || isNaN(value) ? '' : value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   )
-  const prevValue = useRef(value)
+  const [prevExternalValue, setPrevExternalValue] = useState(value)
 
-  // Sync externo → local (ex: auto-preenchimento IA, fetch de taxa)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (Math.abs(prevValue.current - value) > 0.001) {
-      prevValue.current = value
-      setRawText(value === 0 || isNaN(value) ? '' : value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
-    }
-  }, [value])
+  // Render-time sync: detecta mudança externa (IA, fetch) sem useEffect
+  if (Math.abs(prevExternalValue - value) > 0.001) {
+    setPrevExternalValue(value)
+    setRawText(value === 0 || isNaN(value) ? '' : value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+  }
 
   return (
     <input
