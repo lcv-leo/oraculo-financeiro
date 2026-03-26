@@ -196,6 +196,15 @@ function App() {
   const [isDragging, setIsDragging] = useState(false)
   const [processandoImg, setProcessandoImg] = useState(false)
 
+  // ── Auth (email + OTP) ──────────────────────────────────────────────────
+  type AuthMode = 'save' | 'retrieve' | null
+  type AuthStep = 'email' | 'token'
+  const [authMode, setAuthMode] = useState<AuthMode>(null)
+  const [authStep, setAuthStep] = useState<AuthStep>('email')
+  const [authEmail, setAuthEmail] = useState('')
+  const [authToken, setAuthToken] = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
+
   // Tesouro Transparente — taxas IPCA+ por vencimento
   const [titulosIpca, setTitulosIpca] = useState<TituloTD[]>([])
   const [taxaRef, setTaxaRef] = useState<string | null>(null)
@@ -453,7 +462,95 @@ function App() {
     }
   }
 
-  const handleSalvarLoteTesouro = async () => {
+  // ── Auth handlers ────────────────────────────────────────────────────────
+
+  const collectAnaliseData = () => ({
+    tesouroRegistros,
+    lciRegistros,
+    taxaAtualTesouro,
+    durationAnos,
+    cdiAtual,
+    ipcaProjetado,
+    prazoDias,
+    taxaLciLca,
+    aporte,
+  })
+
+  const handleAuthEmailSubmit = async () => {
+    if (!authEmail || !authEmail.includes('@')) {
+      pushNotification('warning', 'E-mail inválido', 'Insira um endereço de e-mail válido.')
+      return
+    }
+    setAuthLoading(true)
+    try {
+      const action = authMode === 'save' ? 'save' : 'request-token'
+      const body: Record<string, unknown> = { action, email: authEmail }
+      if (action === 'save') body.dados = collectAnaliseData()
+
+      const res = await fetch('/api/oraculo-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const result = await res.json() as { ok: boolean; message?: string; error?: string }
+
+      if (result.ok) {
+        setAuthStep('token')
+        pushNotification('info', 'Código enviado', result.message ?? 'Verifique seu e-mail.')
+      } else {
+        pushNotification('error', 'Erro', result.error ?? 'Falha ao enviar código.')
+      }
+    } catch {
+      pushNotification('error', 'Erro de rede', 'Não foi possível conectar ao servidor.')
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  const handleAuthTokenSubmit = async () => {
+    if (authToken.length !== 6) return
+    setAuthLoading(true)
+    try {
+      const action = authMode === 'save' ? 'verify-save' : 'retrieve'
+      const res = await fetch('/api/oraculo-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, email: authEmail, token: authToken }),
+      })
+      const result = await res.json() as { ok: boolean; message?: string; error?: string; dados?: ReturnType<typeof collectAnaliseData> }
+
+      if (result.ok) {
+        if (authMode === 'save') {
+          pushNotification('success', 'Salvo!', result.message ?? 'Dados salvos com sucesso.')
+        } else if (result.dados) {
+          // Restaurar dados
+          if (result.dados.tesouroRegistros) setTesouroRegistros(result.dados.tesouroRegistros)
+          if (result.dados.lciRegistros) setLciRegistros(result.dados.lciRegistros)
+          if (result.dados.taxaAtualTesouro) setTaxaAtualTesouro(result.dados.taxaAtualTesouro)
+          if (result.dados.durationAnos) setDurationAnos(result.dados.durationAnos)
+          if (result.dados.cdiAtual) setCdiAtual(result.dados.cdiAtual)
+          if (result.dados.ipcaProjetado) setIpcaProjetado(result.dados.ipcaProjetado)
+          if (result.dados.prazoDias) setPrazoDias(result.dados.prazoDias)
+          if (result.dados.taxaLciLca) setTaxaLciLca(result.dados.taxaLciLca)
+          if (result.dados.aporte) setAporte(result.dados.aporte)
+          pushNotification('success', 'Resgatado!', 'Seus dados foram restaurados com sucesso.')
+        }
+        // Fechar modal
+        setAuthMode(null)
+        setAuthStep('email')
+        setAuthEmail('')
+        setAuthToken('')
+      } else {
+        pushNotification('error', 'Erro', result.error ?? 'Código inválido.')
+      }
+    } catch {
+      pushNotification('error', 'Erro de rede', 'Não foi possível conectar ao servidor.')
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  const handleAdicionarLote = () => {
     if (!novoLoteDataCompra || novoLoteValor <= 0 || novoLoteTaxa <= 0 || taxaAtualTesouro <= 0) {
       pushNotification('warning', 'Parâmetros inválidos', 'Preencha data, valor e taxas válidas para o lote.')
       return
@@ -507,30 +604,10 @@ function App() {
         `IR: ${analiseNovoLote.aliquotaIrAtual}% | Média carteira: ${dataMediaComNovo} taxa ${taxaMediaComNovo.toFixed(2)}% | ${decisaoComNovo.texto}`,
     }
 
-    setLoading(true)
-
-    try {
-      const response = await fetch('/api/tesouro-ipca', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(novoRegistro)
-      })
-
-      if (!response.ok) {
-        throw new Error(await parseApiError(response))
-      }
-
-      const payload = await response.json() as ApiCreateResponse<RegistroTesouroIpca>
-      setTesouroRegistros((previous) => [payload.data, ...previous].slice(0, 200))
-      pushNotification('info', 'Lote salvo', `Recomendação atual: ${payload.data.sinal.toUpperCase()}.`)
-      setActiveTab('tesouro-ipca')
-    } catch (error) {
-      pushNotification('error', 'Erro no Tesouro', error instanceof Error ? error.message : 'Falha ao gravar lote no D1.')
-    } finally {
-      setLoading(false)
-    }
+    // Adicionar lote ao estado local (sem API)
+    setTesouroRegistros((prev) => [novoRegistro, ...prev].slice(0, 200))
+    pushNotification('info', 'Lote adicionado', `${novoLoteVencimento} — R$ ${novoLoteValor.toLocaleString('pt-BR')}, taxa ${novoLoteTaxa.toFixed(2)}%`)
+    setActiveTab('tesouro-ipca')
   }
 
 
@@ -1074,11 +1151,12 @@ function App() {
             </label>
           </div>
 
-          <div className="actions">
-            <button onClick={handleSalvarLoteTesouro} type="button">Salvar lote no D1</button>
-            <button onClick={() => void carregarRegistros()} type="button" className="ghost">Recarregar do D1</button>
+          <div className="actions-grid">
+            <button onClick={handleAdicionarLote} type="button" className="btn-add">+ Adicionar lote</button>
+            <button onClick={() => setAuthMode('save')} type="button">Salvar Análise</button>
+            <button onClick={() => setAuthMode('retrieve')} type="button" className="ghost">Resgatar Análise</button>
             <button onClick={() => void handleAnalisarIa()} type="button" className="btn-ia" disabled={analisandoIa}>
-              {analisandoIa ? 'Analisando...' : '✦ Analisar com IA'}
+              {analisandoIa ? 'Analisando...' : '✦ Análise Inteligente'}
             </button>
           </div>
 
@@ -1164,6 +1242,61 @@ function App() {
       <footer className="app-version-footer">
         <span>{APP_VERSION}</span>
       </footer>
+
+      {/* ── Auth Modal ────────────────────────────────────────────────── */}
+      {authMode && (
+        <div className="auth-overlay" onClick={() => { setAuthMode(null); setAuthStep('email'); setAuthEmail(''); setAuthToken('') }}>
+          <div className="auth-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>{authMode === 'save' ? '💾 Salvar Análise' : '📂 Resgatar Análise'}</h3>
+
+            {authStep === 'email' && (
+              <>
+                <p>{authMode === 'save'
+                  ? 'Insira seu e-mail para proteger seus dados. Enviaremos um código de verificação.'
+                  : 'Insira o e-mail usado anteriormente para resgatar sua análise.'}
+                </p>
+                <input
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && void handleAuthEmailSubmit()}
+                  autoFocus
+                />
+                <div className="auth-actions">
+                  <button type="button" className="ghost" onClick={() => { setAuthMode(null); setAuthEmail('') }}>Cancelar</button>
+                  <button type="button" onClick={() => void handleAuthEmailSubmit()} disabled={authLoading}>
+                    {authLoading ? 'Enviando...' : 'Enviar código'}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {authStep === 'token' && (
+              <>
+                <p>Código enviado para <strong>{authEmail}</strong>. Insira abaixo:</p>
+                <input
+                  className="token-input"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="000000"
+                  value={authToken}
+                  onChange={(e) => setAuthToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onKeyDown={(e) => e.key === 'Enter' && authToken.length === 6 && void handleAuthTokenSubmit()}
+                  autoFocus
+                />
+                <div className="auth-actions">
+                  <button type="button" className="ghost" onClick={() => { setAuthMode(null); setAuthStep('email'); setAuthToken('') }}>Cancelar</button>
+                  <button type="button" onClick={() => void handleAuthTokenSubmit()} disabled={authLoading || authToken.length !== 6}>
+                    {authLoading ? 'Verificando...' : 'Verificar'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   )
 }
