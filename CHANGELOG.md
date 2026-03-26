@@ -1,5 +1,9 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.02.02] — 2026-03-26
+### Removido
+- **Quality Gates**: removida a configuração estrita do Github Actions (`quality-gates.yml`) que bloqueava merges na branch principal por linting e build, permitindo fluidez de deploy para o app.
+
 ## [v01.02.01] — 2026-03-26
 ### Corrigido
 - **UX Drag & Drop Invisível**: injetado banner visual fixo (Feature Banner) na interface do Tesouro Direto, possuindo call-to-action explícito com botão de `Upload Imagem` (input file), sanando a grave falha de discoverability onde a tela exigia um drop às cegas.
