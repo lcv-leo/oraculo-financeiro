@@ -1,5 +1,18 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.03.00] — 2026-03-26
+### Adicionado
+- **Tesouro Transparente**: Worker `/api/taxa-ipca-atual` reescrito para usar CSV público gratuito do Tesouro Transparente (dados abertos, ~13 MB) com cache D1 (`oraculo_taxa_ipca_cache`). ANBIMA (paga) removida.
+- **Force Refresh**: endpoint aceita `?force=true` para bypass do cache (disparo manual via admin-app).
+- **Cron Worker**: novo Worker standalone `workers/cron-taxa-ipca/` com Cron Trigger (02:00 BRT / 05:00 UTC) para pré-aquecimento diário do cache.
+- **CI/CD Cron**: pipeline `deploy.yml` atualizado para deploy automático do cron worker.
+- **Máscaras de Input**: 7 inputs monetários e de taxa convertidos para formato brasileiro (1.234,56) via helpers `formatBRL`/`parseBRL`/`formatTaxa`.
+- **Auto-fetch Taxa**: frontend busca taxa IPCA+ indicativa do Tesouro Transparente ao montar componente, com indicador visual (loading/referência).
+
+### Alterado
+- **MP 2026 (IR)**: `aliquotaIrRegressiva` diferencia lotes pré/pós-2026 (17,5% fixo para novos investimentos).
+- **Prompt Vision**: formato brasileiro dd/mm/aaaa explícito, modelo `gemini-3.1-pro-preview`.
+
 ## [v01.02.05] — 2026-03-26
 ### Corrigido
 - **Modelo Vision reescrito**: worker `tesouro-ipca-vision.ts` inteiramente refatorado — modelo migrado de `gemini-3-pro-preview` (texto-only, incapaz de processar imagens) para `gemini-2.5-pro-latest` (último Pro com suporte nativo a visão multimodal + thinking). Adicionados retry com 1 tentativa extra, filtro de thought parts, tipagem forte (zero `any`), e alinhamento completo ao padrão de engenharia do `analisar-ia.ts`.

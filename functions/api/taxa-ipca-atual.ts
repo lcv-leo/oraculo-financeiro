@@ -98,11 +98,15 @@ function parseCSV(csvText: string): TituloTD[] {
 
 // ─── HANDLER ──────────────────────────────────────────────────────────────────
 
-export const onRequestGet = async ({ env }: Context) => {
+export const onRequestGet = async ({ env, request }: Context) => {
   const db = env?.BIGDATA_DB
   if (!db || typeof db.prepare !== 'function') {
     return jsonResponse({ ok: false, error: 'Database binding (BIGDATA_DB) indisponível.' }, 503)
   }
+
+  // Suporte a ?force=true para bypass do cache (trigger manual via admin-app)
+  const url = new URL(request.url)
+  const forceRefresh = url.searchParams.get('force') === 'true'
 
   try {
     // ── 1. Verificar cache D1 (válido se atualizado hoje) ───────────────────
@@ -112,7 +116,7 @@ export const onRequestGet = async ({ env }: Context) => {
       'SELECT data_referencia, taxa_indicativa, vencimentos_json, atualizado_em FROM oraculo_taxa_ipca_cache WHERE id = ? LIMIT 1'
     ).bind('latest').first<TaxaIpcaCache>()
 
-    if (cacheRow && cacheRow.atualizado_em?.startsWith(hoje)) {
+    if (!forceRefresh && cacheRow && cacheRow.atualizado_em?.startsWith(hoje)) {
       // Cache válido — retornar sem baixar CSV
       return jsonResponse({
         ok: true,
