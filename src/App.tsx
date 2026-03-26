@@ -2,7 +2,7 @@
 // Versão: v01.02.00
 // Descrição: Frontend do Oráculo Financeiro — análise LCI/LCA e Tesouro IPCA+ com IA Gemini.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import {
   aliquotaIrRegressiva,
@@ -126,28 +126,38 @@ function parseBRL(input: string): number {
   return isNaN(val) ? 0 : val
 }
 
-/**
- * Retorna string editável para input: permite apagar conteúdo sem re-formatação.
- * Aceita digitação livre com vírgula decimal brasileira.
- */
-function taxaToString(value: number): string {
-  if (isNaN(value) || value === 0) return ''
-  return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
+function TaxaInput({ value, onChange, ...props }: {
+  value: number
+  onChange: (v: number) => void
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>) {
+  const [rawText, setRawText] = useState(() =>
+    value === 0 || isNaN(value) ? '' : value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  )
+  const prevValue = useRef(value)
 
-/** Handler genérico: armazena string raw no state; parseia onBlur. */
-function handleTaxaChange(raw: string, setter: (v: number) => void) {
-  // Permite qualquer digitação (inclusive campo vazio)
-  const clean = raw.replace(/[^\d.,]/g, '')
-  const normalized = clean.replace(/\./g, '').replace(',', '.')
-  const val = parseFloat(normalized)
-  setter(isNaN(val) ? 0 : val)
-}
+  // Sync externo → local (ex: auto-preenchimento IA, fetch de taxa)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (Math.abs(prevValue.current - value) > 0.001) {
+      prevValue.current = value
+      setRawText(value === 0 || isNaN(value) ? '' : value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+    }
+  }, [value])
 
-/** Formata taxa percentual (legacy compat): 7.41 → "7,41" */
-function formatTaxa(value: number): string {
-  if (isNaN(value) || value === 0) return ''
-  return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return (
+    <input
+      {...props}
+      type="text"
+      inputMode="decimal"
+      value={rawText}
+      onChange={(e) => {
+        const raw = e.target.value
+        setRawText(raw)
+        const num = parseBRL(raw)
+        onChange(num)
+      }}
+    />
+  )
 }
 
 function App() {
@@ -722,7 +732,7 @@ function App() {
 
             <label htmlFor="lci-taxa-cdi">
               Taxa da LCI/LCA (% do CDI)
-              <input id="lci-taxa-cdi" name="lciTaxaPercentCdi" type="text" autoComplete="off" inputMode="decimal" value={formatTaxa(taxaLciLca)} onChange={(e) => handleTaxaChange(e.target.value, setTaxaLciLca)} onBlur={(e) => { if (e.target.value) e.target.value = taxaToString(taxaLciLca) }} />
+              <TaxaInput id="lci-taxa-cdi" name="lciTaxaPercentCdi" autoComplete="off" value={taxaLciLca} onChange={setTaxaLciLca} />
             </label>
 
             <label htmlFor="lci-aporte">
@@ -732,12 +742,12 @@ function App() {
 
             <label htmlFor="cdi-atual">
               CDI atual (% a.a.)
-              <input id="cdi-atual" name="currentCdiRate" type="text" autoComplete="off" inputMode="decimal" value={formatTaxa(cdiAtual)} onChange={(e) => handleTaxaChange(e.target.value, setCdiAtual)} onBlur={(e) => { if (e.target.value) e.target.value = taxaToString(cdiAtual) }} />
+              <TaxaInput id="cdi-atual" name="currentCdiRate" autoComplete="off" value={cdiAtual} onChange={setCdiAtual} />
             </label>
 
             <label htmlFor="ipca-projetado">
               IPCA projetado 12m (% a.a.)
-              <input id="ipca-projetado" name="projectedIpcaRate" type="text" autoComplete="off" inputMode="decimal" value={formatTaxa(ipcaProjetado)} onChange={(e) => handleTaxaChange(e.target.value, setIpcaProjetado)} onBlur={(e) => { if (e.target.value) e.target.value = taxaToString(ipcaProjetado) }} />
+              <TaxaInput id="ipca-projetado" name="projectedIpcaRate" autoComplete="off" value={ipcaProjetado} onChange={setIpcaProjetado} />
             </label>
           </div>
 
@@ -905,7 +915,7 @@ function App() {
               Taxa IPCA+ ofertada hoje (% a.a.)
               {taxaLoading && <small style={{ color: '#1a73e8', marginLeft: '0.5rem' }}>⏳ Buscando taxa...</small>}
               {taxaRef && !taxaLoading && <small style={{ color: '#34a853', marginLeft: '0.5rem' }}>✓ Tesouro Transparente {taxaRef}</small>}
-              <input id="tesouro-taxa-atual" name="currentTesouroRate" type="text" autoComplete="off" inputMode="decimal" value={formatTaxa(taxaAtualTesouro)} onChange={(e) => handleTaxaChange(e.target.value, setTaxaAtualTesouro)} onBlur={(e) => { if (e.target.value) e.target.value = taxaToString(taxaAtualTesouro) }} />
+              <TaxaInput id="tesouro-taxa-atual" name="currentTesouroRate" autoComplete="off" value={taxaAtualTesouro} onChange={setTaxaAtualTesouro} />
             </label>
 
             <label htmlFor="tesouro-duration">
@@ -1019,7 +1029,7 @@ function App() {
 
             <label htmlFor="tesouro-taxa-contratada">
               Taxa contratada IPCA+ (% a.a.)
-              <input id="tesouro-taxa-contratada" name="contractedTesouroRate" type="text" autoComplete="off" inputMode="decimal" value={formatTaxa(novoLoteTaxa)} onChange={(e) => handleTaxaChange(e.target.value, setNovoLoteTaxa)} onBlur={(e) => { if (e.target.value) e.target.value = taxaToString(novoLoteTaxa) }} />
+              <TaxaInput id="tesouro-taxa-contratada" name="contractedTesouroRate" autoComplete="off" value={novoLoteTaxa} onChange={setNovoLoteTaxa} />
             </label>
           </div>
 
