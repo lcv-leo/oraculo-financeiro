@@ -16,12 +16,10 @@
 .hero,
 .panel,
 .toast {
-  border: 1px solid rgba(124, 117, 151, 0.3);
-  background: rgba(255, 255, 255, 0.68);
-  border-radius: 1rem;
-  box-shadow: 0 14px 34px rgba(29, 19, 53, 0.14);
-  -webkit-backdrop-filter: blur(18px) saturate(145%);
-  backdrop-filter: blur(18px) saturate(145%);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: #ffffff;
+  border-radius: 30px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .hero {
@@ -39,9 +37,9 @@
 .brand-panel {
   flex: 1;
   min-height: var(--bar-min-height);
-  border-radius: 0.72rem;
-  border: 1px solid rgba(96, 88, 133, 0.28);
-  background: rgba(255, 255, 255, 0.72);
+  border-radius: 100px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -52,7 +50,7 @@
   width: 96px;
   min-width: 96px;
   min-height: var(--bar-min-height);
-  border-radius: 0.72rem;
+  border-radius: 100px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -126,19 +124,20 @@
 }
 
 .tab {
-  border: 1px solid rgba(109, 101, 146, 0.42);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 100px;
+  background: #ffffff;
   padding: 0.55rem 0.9rem;
   font-weight: 700;
-  color: #2f2b49;
+  color: #0d0d0d;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
 .tab.active {
-  background: linear-gradient(120deg, #4f46e5, #6750a4);
+  background: #1a73e8;
   color: #ffffff;
-  border-color: transparent;
+  border-color: #1a73e8;
 }
 
 .panel {
@@ -159,23 +158,30 @@ label {
   display: grid;
   gap: 0.3rem;
   font-size: 0.92rem;
-  color: #3a3559;
+  color: #0d0d0d;
 }
 
 input {
-  border: 1px solid rgba(112, 104, 145, 0.4);
-  border-radius: 0.72rem;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
   padding: 0.58rem 0.7rem;
   font: inherit;
-  background: rgba(255, 255, 255, 0.88);
+  background: #ffffff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus-visible {
+  outline: none;
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.2);
 }
 
 .result {
   margin-top: 1rem;
-  border: 1px solid rgba(79, 70, 229, 0.24);
-  border-radius: 0.8rem;
-  padding: 0.8rem;
-  background: rgba(79, 70, 229, 0.08);
+  border: 1px solid rgba(26, 115, 232, 0.24);
+  border-radius: 30px;
+  padding: 0.8rem 1.2rem;
+  background: rgba(26, 115, 232, 0.05);
 }
 
 .result h3 {
@@ -191,22 +197,38 @@ input {
 
 button {
   border: 1px solid transparent;
-  border-radius: 0.7rem;
+  border-radius: 100px;
   padding: 0.56rem 0.9rem;
-  background: #2f8f66;
+  background: #0d0d0d;
   color: #fff;
   cursor: pointer;
   font-weight: 700;
+  transition: all 0.2s;
+}
+
+button:hover {
+  background: #1a73e8;
 }
 
 button.secondary {
-  background: #4f46e5;
+  background: #ffffff;
+  color: #0d0d0d;
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+button.secondary:hover {
+  border-color: #1a73e8;
+  color: #1a73e8;
 }
 
 button.ghost {
-  background: rgba(255, 255, 255, 0.82);
-  color: #2b2841;
-  border-color: rgba(110, 103, 145, 0.42);
+  background: transparent;
+  color: #0d0d0d;
+  border-color: transparent;
+}
+
+button.ghost:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .records {
@@ -430,11 +452,11 @@ td {
 
 .modal {
   width: min(420px, calc(100% - 1.4rem));
-  border-radius: 1rem;
-  border: 1px solid rgba(124, 117, 151, 0.3);
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 14px 34px rgba(29, 19, 53, 0.2);
-  padding: 1rem;
+  border-radius: 30px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
 }
 
 .modal h3 {
@@ -486,8 +508,8 @@ td {
 }
 
 .result-block.highlight {
-  border-color: rgba(79, 70, 229, 0.32);
-  background: rgba(79, 70, 229, 0.07);
+  border-color: rgba(26, 115, 232, 0.32);
+  background: rgba(26, 115, 232, 0.1);
 }
 
 .result-block.warn {
@@ -689,20 +711,21 @@ td {
 /* ─── BOTÃO IA ────────────────────────────────────────────────────────────── */
 
 .btn-ia {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  background: #1a73e8;
   color: #fff;
   border: none;
-  border-radius: 0.55rem;
+  border-radius: 100px;
   padding: 0.45rem 0.9rem;
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
   letter-spacing: 0.03em;
-  transition: opacity 0.18s, transform 0.12s;
+  transition: background 0.2s, opacity 0.18s, transform 0.12s;
 }
 
 .btn-ia:hover:not(:disabled) {
-  opacity: 0.88;
+  opacity: 1;
+  background: #1557b0;
   transform: translateY(-1px);
 }
 

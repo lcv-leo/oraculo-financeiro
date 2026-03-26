@@ -291,10 +291,11 @@ export const onRequestPost = async ({ env, request }: Context) => {
       },
     },
     safetySettings: [
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
       { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
       { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_ONLY_HIGH' },
     ],
   }
 
@@ -326,11 +327,13 @@ export const onRequestPost = async ({ env, request }: Context) => {
   // Extrai o texto da resposta do Gemini
   const geminiData = await geminiResponse.json() as {
     candidates?: Array<{
-      content?: { parts?: Array<{ text?: string }> }
+      content?: { parts?: Array<{ text?: string, thought?: boolean }> }
     }>
   }
 
-  const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  const parts = geminiData?.candidates?.[0]?.content?.parts ?? []
+  const visibleParts = parts.filter(p => !p.thought && p.text)
+  const rawText = visibleParts.map(p => p.text).join('\n')
   if (!rawText) {
     return jsonResponse({ ok: false, error: 'Gemini retornou resposta vazia.' }, 502)
   }
