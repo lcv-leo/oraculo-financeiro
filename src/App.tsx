@@ -478,15 +478,9 @@ function App() {
     }
   }
 
-  const handleDropImagem = async (e: React.DragEvent<HTMLElement>) => {
-    e.preventDefault()
-    setIsDragging(false)
-    
-    if (activeTab !== 'tesouro-ipca') return
-
-    const file = e.dataTransfer.files[0]
+  const handleProcessFile = async (file: File) => {
     if (!file || !file.type.startsWith('image/')) {
-      pushNotification('warning', 'Formato inválido', 'Por favor, arraste apenas arquivos de imagem (PNG, JPG).')
+      pushNotification('warning', 'Formato inválido', 'Por favor, arraste ou selecione apenas arquivos de imagem (PNG, JPG).')
       return
     }
 
@@ -521,7 +515,7 @@ function App() {
         setNovoLoteDataCompra(lote.dataCompra)
         setNovoLoteValor(lote.valorInvestido)
         setNovoLoteTaxa(lote.taxaContratada)
-        pushNotification('success', 'Extração concluída', `Lote de R$ ${lote.valorInvestido} extraído com sucesso! Verifique os dados abaixo e clique em Salvar.`)
+        pushNotification('success', 'Extração concluída', `Lote de R$ ${lote.valorInvestido} extraído com sucesso! Verifique os dados e clique em Salvar.`)
       } else {
         pushNotification('warning', 'Nenhum dado encontrado', 'A IA não conseguiu identificar os dados de um lote do Tesouro IPCA+ na imagem.')
       }
@@ -529,6 +523,23 @@ function App() {
       pushNotification('error', 'Erro no Vision', error instanceof Error ? error.message : 'Falha na comunicação com o Gemini.')
     } finally {
       setProcessandoImg(false)
+    }
+  }
+
+  const handleDropImagem = async (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault()
+    setIsDragging(false)
+    
+    if (activeTab !== 'tesouro-ipca') return
+
+    const file = e.dataTransfer.files[0]
+    void handleProcessFile(file)
+  }
+
+  const handleInputFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      void handleProcessFile(file)
     }
   }
 
@@ -740,6 +751,17 @@ function App() {
           )}
           
           <h2>Tesouro Direto IPCA+: Marcação a Mercado</h2>
+
+          <div className="feature-banner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem', backgroundColor: '#e8f0fe', borderRadius: '16px', marginBottom: '2rem', border: '1px solid #d2e3fc' }}>
+            <div className="feature-info">
+              <h3 style={{ margin: 0, color: '#1a73e8', fontSize: '1.1rem' }}>✦ Auto-Preenchimento IA</h3>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: '#3c4043' }}>Anexe um print do extrato. O Gemini identificará os dados sozinho.</p>
+            </div>
+            <label className="btn-ia" style={{ cursor: 'pointer', margin: 0, padding: '0.5rem 1.25rem' }}>
+              Upload Imagem
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleInputFileChange} />
+            </label>
+          </div>
 
           <div className="grid">
             <label htmlFor="tesouro-taxa-atual">
