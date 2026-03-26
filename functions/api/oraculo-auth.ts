@@ -32,7 +32,7 @@ async function sendTokenEmail(email: string, token: string, apiKey: string): Pro
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        from: 'Oráculo Financeiro <noreply@lcv.nexus>',
+        from: 'Oráculo Financeiro <oraculo-financeiro@lcv.app.br>',
         to: [email],
         subject: 'Seu código de verificação — Oráculo Financeiro',
         html: `
