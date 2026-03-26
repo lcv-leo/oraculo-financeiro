@@ -1,13 +1,13 @@
 // Módulo: oraculo-financeiro/functions/api/taxa-ipca-atual.ts
-// Versão: v01.03.00
-// Descrição: Busca a taxa IPCA+ indicativa atual via ANBIMA Feed API (mercado-secundario-TPF).
-// Autenticação OAuth2 com client_credentials grant. Filtra NTN-B (Tesouro IPCA+).
+// Versão: v01.03.01
+// Descrição: Busca a taxa IPCA+ mais recente via CSV público do Tesouro Transparente (dados abertos).
+// Fonte: https://www.tesourotransparente.gov.br/ckan/dataset/taxas-dos-titulos-ofertados-pelo-tesouro-direto
+// Cache: D1 (oraculo_taxa_ipca_cache) — evita download de ~13 MB a cada request.
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
 interface Env {
-  ANBIMA_CLIENT_ID: string
-  ANBIMA_CLIENT_SECRET: string
+  BIGDATA_DB: any // Cloudflare D1 binding
 }
 
 interface Context {
@@ -15,23 +15,20 @@ interface Context {
   request: Request
 }
 
-interface AnbimaTokenResponse {
-  access_token: string
-  token_type: string
-  expires_in: number
+interface TaxaIpcaCache {
+  data_referencia: string
+  taxa_indicativa: number
+  vencimentos_json: string
+  atualizado_em: string
 }
 
-interface AnbimaTitulo {
-  tipo_titulo: string
-  expressao: string
-  data_vencimento: string
-  data_referencia: string
-  codigo_selic: string
-  taxa_compra: number
-  taxa_venda: number
-  taxa_indicativa: number
+interface TituloTD {
+  tipo: string
+  vencimento: string
+  dataBase: string
+  taxaCompra: number
+  taxaVenda: number
   pu: number
-  codigo_isin: string
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -39,96 +36,159 @@ interface AnbimaTitulo {
 function jsonResponse(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'public, max-age=3600', // Cache 1h — dado atualizado 1x/dia às 20h
-    },
+    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
   })
+}
+
+/**
+ * Parseia o CSV do Tesouro Transparente e extrai os registros mais recentes de NTN-B (Tesouro IPCA+).
+ * O CSV tem ~13 MB com dados desde 2002. Lemos apenas as últimas linhas para eficiência.
+ *
+ * Colunas esperadas (separador ;):
+ * Tipo Titulo;Titulo Publico;Data Vencimento;Data Base;Taxa Compra Manha;Taxa Venda Manha;PU Compra Manha;PU Venda Manha;PU Base Manha
+ */
+function parseCSV(csvText: string): TituloTD[] {
+  const lines = csvText.trim().split('\n')
+  if (lines.length < 2) return []
+
+  // Encontrar a data mais recente no CSV (última linha válida)
+  const results: TituloTD[] = []
+  let latestDate = ''
+
+  // Percorrer de trás para frente até encontrar todas as linhas da data mais recente
+  for (let i = lines.length - 1; i >= 1; i--) {
+    const cols = lines[i].split(';')
+    if (cols.length < 6) continue
+
+    const tipoTitulo = cols[0].trim()
+    const tituloPublico = cols[1]?.trim() ?? ''
+    const dataVencimento = cols[2]?.trim() ?? ''
+    const dataBase = cols[3]?.trim() ?? ''
+    const taxaCompra = parseFloat((cols[4] ?? '0').replace(',', '.'))
+    const taxaVenda = parseFloat((cols[5] ?? '0').replace(',', '.'))
+    const puCompra = parseFloat((cols[6] ?? '0').replace(',', '.'))
+
+    if (!dataBase) continue
+
+    // Primeira iteração: definir a data mais recente
+    if (!latestDate) latestDate = dataBase
+
+    // Parar quando sair da data mais recente
+    if (dataBase !== latestDate) break
+
+    // Filtrar apenas Tesouro IPCA+ (NTN-B)
+    const isIpca = tipoTitulo === 'Tesouro IPCA+' ||
+      tipoTitulo === 'Tesouro IPCA+ com Juros Semestrais' ||
+      tituloPublico.includes('IPCA+')
+
+    if (isIpca) {
+      results.push({
+        tipo: tipoTitulo,
+        vencimento: dataVencimento,
+        dataBase,
+        taxaCompra: isNaN(taxaCompra) ? 0 : taxaCompra,
+        taxaVenda: isNaN(taxaVenda) ? 0 : taxaVenda,
+        pu: isNaN(puCompra) ? 0 : puCompra,
+      })
+    }
+  }
+
+  return results
 }
 
 // ─── HANDLER ──────────────────────────────────────────────────────────────────
 
 export const onRequestGet = async ({ env }: Context) => {
-  const clientId = env?.ANBIMA_CLIENT_ID
-  const clientSecret = env?.ANBIMA_CLIENT_SECRET
-
-  if (!clientId || !clientSecret) {
-    return jsonResponse({ ok: false, error: 'Credenciais ANBIMA não configuradas (ANBIMA_CLIENT_ID / ANBIMA_CLIENT_SECRET).' }, 503)
+  const db = env?.BIGDATA_DB
+  if (!db || typeof db.prepare !== 'function') {
+    return jsonResponse({ ok: false, error: 'Database binding (BIGDATA_DB) indisponível.' }, 503)
   }
 
   try {
-    // ── 1. Obter Access Token via OAuth2 (client_credentials) ──────────────
-    const basicAuth = btoa(`${clientId}:${clientSecret}`)
+    // ── 1. Verificar cache D1 (válido se atualizado hoje) ───────────────────
+    const hoje = new Date().toISOString().slice(0, 10)
 
-    const tokenRes = await fetch('https://api.anbima.com.br/oauth/access-token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Basic ${basicAuth}`,
-      },
-      body: JSON.stringify({ grant_type: 'client_credentials' }),
-    })
+    const cacheRow = await db.prepare(
+      'SELECT data_referencia, taxa_indicativa, vencimentos_json, atualizado_em FROM oraculo_taxa_ipca_cache WHERE id = ? LIMIT 1'
+    ).bind('latest').first<TaxaIpcaCache>()
 
-    if (!tokenRes.ok) {
-      const errText = await tokenRes.text()
-      return jsonResponse({ ok: false, error: `Falha na autenticação ANBIMA (${tokenRes.status}): ${errText}` }, 502)
+    if (cacheRow && cacheRow.atualizado_em?.startsWith(hoje)) {
+      // Cache válido — retornar sem baixar CSV
+      return jsonResponse({
+        ok: true,
+        fonte: 'cache',
+        dataReferencia: cacheRow.data_referencia,
+        taxaMediaIndicativa: cacheRow.taxa_indicativa,
+        titulos: JSON.parse(cacheRow.vencimentos_json),
+      })
     }
 
-    const tokenData = await tokenRes.json() as AnbimaTokenResponse
-    const accessToken = tokenData.access_token
+    // ── 2. Baixar CSV do Tesouro Transparente ────────────────────────────────
+    const csvUrl = 'https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/precotaxatesourodireto.csv'
 
-    // ── 2. Buscar taxas do mercado secundário de títulos públicos ──────────
-    const tpfRes = await fetch('https://api.anbima.com.br/feed/precos-indices/v1/titulos-publicos/mercado-secundario-TPF', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'client_id': clientId,
-        'access_token': accessToken,
-      },
-    })
-
-    if (!tpfRes.ok) {
-      const errText = await tpfRes.text()
-      return jsonResponse({ ok: false, error: `Falha ao consultar ANBIMA TPF (${tpfRes.status}): ${errText}` }, 502)
+    const csvRes = await fetch(csvUrl)
+    if (!csvRes.ok) {
+      // Se falhar e tiver cache antigo, retornar o cache
+      if (cacheRow) {
+        return jsonResponse({
+          ok: true,
+          fonte: 'cache-stale',
+          dataReferencia: cacheRow.data_referencia,
+          taxaMediaIndicativa: cacheRow.taxa_indicativa,
+          titulos: JSON.parse(cacheRow.vencimentos_json),
+        })
+      }
+      return jsonResponse({ ok: false, error: `Falha ao baixar CSV do Tesouro Transparente (HTTP ${csvRes.status}).` }, 502)
     }
 
-    const titulos = await tpfRes.json() as AnbimaTitulo[]
+    const csvText = await csvRes.text()
 
-    // ── 3. Filtrar NTN-B (Tesouro IPCA+) e extrair taxas indicativas ──────
-    const ntnbTitulos = titulos.filter((t) =>
-      t.tipo_titulo === 'NTN-B' || t.tipo_titulo === 'NTN-B Principal'
-    )
+    // ── 3. Parsear CSV e extrair NTN-B mais recentes ─────────────────────────
+    const titulos = parseCSV(csvText)
 
-    if (ntnbTitulos.length === 0) {
-      return jsonResponse({ ok: false, error: 'Nenhum título NTN-B encontrado nos dados da ANBIMA.' }, 404)
+    if (titulos.length === 0) {
+      if (cacheRow) {
+        return jsonResponse({
+          ok: true,
+          fonte: 'cache-stale',
+          dataReferencia: cacheRow.data_referencia,
+          taxaMediaIndicativa: cacheRow.taxa_indicativa,
+          titulos: JSON.parse(cacheRow.vencimentos_json),
+        })
+      }
+      return jsonResponse({ ok: false, error: 'Nenhum título IPCA+ encontrado no CSV.' }, 404)
     }
 
-    // Montar resposta com todos os vencimentos disponíveis
-    const taxas = ntnbTitulos.map((t) => ({
-      tipo: t.tipo_titulo,
-      vencimento: t.data_vencimento,
-      dataReferencia: t.data_referencia,
-      taxaIndicativa: t.taxa_indicativa,
-      taxaCompra: t.taxa_compra,
-      taxaVenda: t.taxa_venda,
-      pu: t.pu,
-      isin: t.codigo_isin,
-    }))
+    // ── 4. Calcular taxa média e salvar no cache D1 ──────────────────────────
+    // Usar taxaCompra como referência (é a taxa que o investidor contrata na compra)
+    const taxasValidas = titulos.filter((t) => t.taxaCompra > 0)
+    const taxaMedia = taxasValidas.length > 0
+      ? Math.round(taxasValidas.reduce((sum, t) => sum + t.taxaCompra, 0) / taxasValidas.length * 100) / 100
+      : 0
 
-    // Taxa média indicativa de todas as NTN-B (aproximação para input do cálculo de MTM)
-    const taxaMedia = taxas.reduce((sum, t) => sum + t.taxaIndicativa, 0) / taxas.length
+    const dataRef = titulos[0].dataBase
+    const vencimentosJson = JSON.stringify(titulos)
+
+    await db.prepare(
+      `INSERT INTO oraculo_taxa_ipca_cache (id, data_referencia, taxa_indicativa, vencimentos_json, atualizado_em)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET data_referencia = ?, taxa_indicativa = ?, vencimentos_json = ?, atualizado_em = ?`
+    ).bind(
+      'latest', dataRef, taxaMedia, vencimentosJson, new Date().toISOString(),
+      dataRef, taxaMedia, vencimentosJson, new Date().toISOString()
+    ).run()
 
     return jsonResponse({
       ok: true,
-      dataReferencia: ntnbTitulos[0].data_referencia,
-      taxaMediaIndicativa: Math.round(taxaMedia * 100) / 100,
-      titulos: taxas,
+      fonte: 'tesouro-transparente',
+      dataReferencia: dataRef,
+      taxaMediaIndicativa: taxaMedia,
+      titulos,
     })
   } catch (error) {
     return jsonResponse({
       ok: false,
-      error: error instanceof Error ? error.message : 'Erro interno ao consultar ANBIMA.',
+      error: error instanceof Error ? error.message : 'Erro interno ao consultar Tesouro Transparente.',
     }, 500)
   }
 }

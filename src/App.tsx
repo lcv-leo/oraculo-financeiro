@@ -104,6 +104,36 @@ async function parseApiError(response: Response) {
   }
 }
 
+// ── Formatação Brasileira (máscaras de input) ─────────────────────────────────
+
+/** Formata número como moeda brasileira: 15491.04 → "15.491,04" */
+function formatBRL(value: number, decimals = 2): string {
+  if (isNaN(value) || value === 0) return ''
+  return value.toLocaleString('pt-BR', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })
+}
+
+/** Parseia string brasileira de volta para número: "15.491,04" → 15491.04 */
+function parseBRL(input: string): number {
+  // Remove tudo que não é dígito, vírgula ou ponto
+  const clean = input.replace(/[^\d.,]/g, '')
+  // Converte formato BR para JS: remove pontos de milhar, troca vírgula por ponto
+  const normalized = clean.replace(/\./g, '').replace(',', '.')
+  const val = parseFloat(normalized)
+  return isNaN(val) ? 0 : val
+}
+
+/** Formata taxa percentual: 7.41 → "7,41" */
+function formatTaxa(value: number): string {
+  if (isNaN(value) || value === 0) return ''
+  return value.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState<TabId>('tesouro-ipca')
   const [loading, setLoading] = useState(false)
@@ -131,14 +161,14 @@ function App() {
   const [isDragging, setIsDragging] = useState(false)
   const [processandoImg, setProcessandoImg] = useState(false)
 
-  // ANBIMA Feed — taxa IPCA+ indicativa do dia
-  const [anbimaRef, setAnbimaRef] = useState<string | null>(null)
-  const [anbimaLoading, setAnbimaLoading] = useState(false)
+  // Tesouro Transparente — taxa IPCA+ indicativa do dia
+  const [taxaRef, setTaxaRef] = useState<string | null>(null)
+  const [taxaLoading, setTaxaLoading] = useState(false)
 
-  // Auto-fetch taxa ANBIMA ao montar
+  // Auto-fetch taxa do Tesouro Transparente ao montar
   useEffect(() => {
-    const fetchTaxaAnbima = async () => {
-      setAnbimaLoading(true)
+    const fetchTaxa = async () => {
+      setTaxaLoading(true)
       try {
         const res = await fetch('/api/taxa-ipca-atual')
         if (!res.ok) return
@@ -146,20 +176,21 @@ function App() {
           ok: boolean
           taxaMediaIndicativa?: number
           dataReferencia?: string
+          fonte?: string
         }
         if (payload.ok && payload.taxaMediaIndicativa) {
           setTaxaAtualTesouro(payload.taxaMediaIndicativa)
-          setAnbimaRef(payload.dataReferencia ?? null)
-          pushNotification('success', 'Taxa ANBIMA atualizada',
-            `Taxa IPCA+ indicativa: ${payload.taxaMediaIndicativa}% a.a. (ref: ${payload.dataReferencia ?? 'hoje'})`)
+          setTaxaRef(payload.dataReferencia ?? null)
+          pushNotification('success', 'Taxa atualizada',
+            `IPCA+ indicativa: ${payload.taxaMediaIndicativa}% a.a. (${payload.fonte === 'cache' ? 'cache' : 'Tesouro Transparente'} — ref: ${payload.dataReferencia ?? 'hoje'})`)
         }
       } catch {
         // Falha silenciosa — mantém o valor default manual
       } finally {
-        setAnbimaLoading(false)
+        setTaxaLoading(false)
       }
     }
-    void fetchTaxaAnbima()
+    void fetchTaxa()
   }, [])
 
   // ── LCI/LCA ─────────────────────────────────────────────────────────────
@@ -675,22 +706,22 @@ function App() {
 
             <label htmlFor="lci-taxa-cdi">
               Taxa da LCI/LCA (% do CDI)
-              <input id="lci-taxa-cdi" name="lciTaxaPercentCdi" type="number" min={1} step={0.1} autoComplete="off" inputMode="decimal" value={taxaLciLca} onChange={(e) => setTaxaLciLca(Number(e.target.value))} />
+              <input id="lci-taxa-cdi" name="lciTaxaPercentCdi" type="text" autoComplete="off" inputMode="decimal" value={formatTaxa(taxaLciLca)} onChange={(e) => setTaxaLciLca(parseBRL(e.target.value))} />
             </label>
 
             <label htmlFor="lci-aporte">
               Aporte (R$)
-              <input id="lci-aporte" name="investmentAmount" type="number" min={0} autoComplete="transaction-amount" inputMode="decimal" value={aporte} onChange={(e) => setAporte(Number(e.target.value))} />
+              <input id="lci-aporte" name="investmentAmount" type="text" autoComplete="transaction-amount" inputMode="decimal" value={formatBRL(aporte)} onChange={(e) => setAporte(parseBRL(e.target.value))} />
             </label>
 
             <label htmlFor="cdi-atual">
               CDI atual (% a.a.)
-              <input id="cdi-atual" name="currentCdiRate" type="number" min={0.01} step={0.01} autoComplete="off" inputMode="decimal" value={cdiAtual} onChange={(e) => setCdiAtual(Number(e.target.value))} />
+              <input id="cdi-atual" name="currentCdiRate" type="text" autoComplete="off" inputMode="decimal" value={formatTaxa(cdiAtual)} onChange={(e) => setCdiAtual(parseBRL(e.target.value))} />
             </label>
 
             <label htmlFor="ipca-projetado">
               IPCA projetado 12m (% a.a.)
-              <input id="ipca-projetado" name="projectedIpcaRate" type="number" min={0} step={0.01} autoComplete="off" inputMode="decimal" value={ipcaProjetado} onChange={(e) => setIpcaProjetado(Number(e.target.value))} />
+              <input id="ipca-projetado" name="projectedIpcaRate" type="text" autoComplete="off" inputMode="decimal" value={formatTaxa(ipcaProjetado)} onChange={(e) => setIpcaProjetado(parseBRL(e.target.value))} />
             </label>
           </div>
 
@@ -856,9 +887,9 @@ function App() {
           <div className="grid">
             <label htmlFor="tesouro-taxa-atual">
               Taxa IPCA+ ofertada hoje (% a.a.)
-              {anbimaLoading && <small style={{ color: '#1a73e8', marginLeft: '0.5rem' }}>⏳ Buscando ANBIMA...</small>}
-              {anbimaRef && !anbimaLoading && <small style={{ color: '#34a853', marginLeft: '0.5rem' }}>✓ ANBIMA {anbimaRef}</small>}
-              <input id="tesouro-taxa-atual" name="currentTesouroRate" type="number" min={0.01} step={0.01} autoComplete="off" inputMode="decimal" value={taxaAtualTesouro} onChange={(e) => setTaxaAtualTesouro(Number(e.target.value))} />
+              {taxaLoading && <small style={{ color: '#1a73e8', marginLeft: '0.5rem' }}>⏳ Buscando taxa...</small>}
+              {taxaRef && !taxaLoading && <small style={{ color: '#34a853', marginLeft: '0.5rem' }}>✓ Tesouro Transparente {taxaRef}</small>}
+              <input id="tesouro-taxa-atual" name="currentTesouroRate" type="text" autoComplete="off" inputMode="decimal" value={formatTaxa(taxaAtualTesouro)} onChange={(e) => setTaxaAtualTesouro(parseBRL(e.target.value))} />
             </label>
 
             <label htmlFor="tesouro-duration">
@@ -967,12 +998,12 @@ function App() {
 
             <label htmlFor="tesouro-valor-investido">
               Valor investido (R$)
-              <input id="tesouro-valor-investido" name="investedAmount" type="number" min={1} autoComplete="transaction-amount" inputMode="decimal" value={novoLoteValor} onChange={(e) => setNovoLoteValor(Number(e.target.value))} />
+              <input id="tesouro-valor-investido" name="investedAmount" type="text" autoComplete="transaction-amount" inputMode="decimal" value={formatBRL(novoLoteValor)} onChange={(e) => setNovoLoteValor(parseBRL(e.target.value))} />
             </label>
 
             <label htmlFor="tesouro-taxa-contratada">
               Taxa contratada IPCA+ (% a.a.)
-              <input id="tesouro-taxa-contratada" name="contractedTesouroRate" type="number" min={0.01} step={0.01} autoComplete="off" inputMode="decimal" value={novoLoteTaxa} onChange={(e) => setNovoLoteTaxa(Number(e.target.value))} />
+              <input id="tesouro-taxa-contratada" name="contractedTesouroRate" type="text" autoComplete="off" inputMode="decimal" value={formatTaxa(novoLoteTaxa)} onChange={(e) => setNovoLoteTaxa(parseBRL(e.target.value))} />
             </label>
           </div>
 
