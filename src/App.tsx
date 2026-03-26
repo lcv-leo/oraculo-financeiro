@@ -126,6 +126,10 @@ function App() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('checking')
   const [analisandoIa, setAnalisandoIa] = useState(false)
   const [analiseIa, setAnaliseIa] = useState<AnaliseIA | null>(null)
+  
+  // Imagem Drag/Drop
+  const [isDragging, setIsDragging] = useState(false)
+  const [processandoImg, setProcessandoImg] = useState(false)
 
   // ── LCI/LCA ─────────────────────────────────────────────────────────────
   const aliquotaIr = useMemo(() => aliquotaIrRegressiva(prazoDias), [prazoDias])
@@ -474,6 +478,60 @@ function App() {
     }
   }
 
+  const handleDropImagem = async (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault()
+    setIsDragging(false)
+    
+    if (activeTab !== 'tesouro-ipca') return
+
+    const file = e.dataTransfer.files[0]
+    if (!file || !file.type.startsWith('image/')) {
+      pushNotification('warning', 'Formato inválido', 'Por favor, arraste apenas arquivos de imagem (PNG, JPG).')
+      return
+    }
+
+    setProcessandoImg(true)
+    pushNotification('info', 'Processando imagem', 'O Gemini está extraindo os dados do extrato...')
+
+    try {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const result = reader.result as string
+          resolve(result.split(',')[1])
+        }
+        reader.onerror = () => reject(new Error('Falha ao ler o arquivo'))
+        reader.readAsDataURL(file)
+      })
+
+      const res = await fetch('/api/tesouro-ipca-vision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64Data, mimeType: file.type })
+      })
+
+      const payload = await res.json() as { ok: boolean, data?: LoteTesouroForm[], error?: string }
+      if (!res.ok || !payload.ok) {
+        throw new Error(payload.error ?? 'Falha na IA Vision.')
+      }
+
+      if (payload.data && payload.data.length > 0) {
+        // Preenche o formulário com o primeiro lote encontrado
+        const lote = payload.data[0]
+        setNovoLoteDataCompra(lote.dataCompra)
+        setNovoLoteValor(lote.valorInvestido)
+        setNovoLoteTaxa(lote.taxaContratada)
+        pushNotification('success', 'Extração concluída', `Lote de R$ ${lote.valorInvestido} extraído com sucesso! Verifique os dados abaixo e clique em Salvar.`)
+      } else {
+        pushNotification('warning', 'Nenhum dado encontrado', 'A IA não conseguiu identificar os dados de um lote do Tesouro IPCA+ na imagem.')
+      }
+    } catch (error) {
+      pushNotification('error', 'Erro no Vision', error instanceof Error ? error.message : 'Falha na comunicação com o Gemini.')
+    } finally {
+      setProcessandoImg(false)
+    }
+  }
+
   return (
     <main className="container">
       <aside className="notifications" aria-live="polite">
@@ -667,7 +725,20 @@ function App() {
       )}
 
       {activeTab === 'tesouro-ipca' && (
-        <section className="panel">
+        <section 
+          className={`panel relative ${isDragging ? 'ring-4 ring-[#1a73e8] bg-[#f8faff]' : ''}`}
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+          onDragLeave={(e) => { e.preventDefault(); setIsDragging(false) }}
+          onDrop={(e) => void handleDropImagem(e)}
+        >
+          {isDragging && (
+            <div className="absolute inset-0 z-50 bg-[#1a73e8]/10 backdrop-blur-sm flex items-center justify-center rounded-[30px] border-2 border-dashed border-[#1a73e8]">
+              <div className="bg-white p-6 rounded-3xl shadow-lg text-center font-bold text-[#1a73e8] text-lg">
+                Solte a imagem do extrato aqui para extração com IA
+              </div>
+            </div>
+          )}
+          
           <h2>Tesouro Direto IPCA+: Marcação a Mercado</h2>
 
           <div className="grid">
@@ -769,7 +840,12 @@ function App() {
 
           <h3>Registrar novo lote</h3>
 
-          <div className="grid">
+          <div className="grid relative">
+            {processandoImg && (
+              <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-sm flex items-center justify-center rounded-xl">
+                <span className="font-bold text-[#1a73e8] animate-pulse">Extraindo dados da imagem com AI...</span>
+              </div>
+            )}
             <label htmlFor="tesouro-data-compra">
               Data da compra
               <input id="tesouro-data-compra" name="purchaseDate" type="date" autoComplete="off" value={novoLoteDataCompra} onChange={(e) => setNovoLoteDataCompra(e.target.value)} />
