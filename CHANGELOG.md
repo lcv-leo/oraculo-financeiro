@@ -9,6 +9,8 @@
 ### Corrigido
 - **Exposição de dados no frontend público**: registros em `oraculo_tesouro_ipca_lotes` e `oraculo_lci_cdb_registros` permaneciam após exclusão do usuário no admin-app. Agora a cascata de exclusão remove registros por IDs do JSON + por email (safety net) em todas as tabelas.
 - **Cron resetava ao deploy**: `triggers.crons` hardcoded em `wrangler.json` sobrescrevia a configuração de agendamento a cada deploy. Removido — agendamento agora gerenciado exclusivamente via API Cloudflare (admin-app).
+- **[SECURITY] GET handlers públicos removidos**: `onRequestGet` de `tesouro-ipca.ts` e `registros-lci-cdb.ts` retornavam todos os registros sem autenticação. Removidos. Dados de usuário agora acessíveis somente via fluxo autenticado em `oraculo-auth.ts`.
+- **[SECURITY] Frontend auto-load removido**: `carregarRegistros()` e `useEffect` que carregavam todos os dados ao abrir a página foram deletados. Frontend agora inicia vazio — dados populados somente após validação via email/token.
 
 ### Melhorado
 - **Botão "Análise Inteligente" reposicionado**: movido para antes dos botões de ação, centralizado em linha própria com largura 100% e espaçamento adequado.

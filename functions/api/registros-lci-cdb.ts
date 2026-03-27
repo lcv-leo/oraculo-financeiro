@@ -53,60 +53,9 @@ function getDbOrThrow(env: Env) {
   return db
 }
 
-export const onRequestGet = async ({ env, request }: Context) => {
-  try {
-    const db = getDbOrThrow(env)
-
-    const requestUrl = new URL(request.url)
-    const limitParam = Number(requestUrl.searchParams.get('limit') ?? 25)
-    const offsetParam = Number(requestUrl.searchParams.get('offset') ?? 0)
-
-    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(Math.trunc(limitParam), 1), 100) : 25
-    const offset = Number.isFinite(offsetParam) ? Math.max(Math.trunc(offsetParam), 0) : 0
-
-    // Self-healing: add email column if missing
-    try { await db.prepare(`ALTER TABLE oraculo_lci_cdb_registros ADD COLUMN email TEXT DEFAULT ''`).run() } catch { /* exists */ }
-
-    const countResult = await db.prepare(
-      'SELECT COUNT(*) AS total FROM oraculo_lci_cdb_registros'
-    ).all()
-
-    const total = Number((countResult.results?.[0] as { total?: number } | undefined)?.total ?? 0)
-
-    const { results } = await db.prepare(
-      `SELECT
-        id,
-        created_at AS criadoEm,
-        prazo_dias AS prazoDias,
-        taxa_cdi AS taxaLciLca,
-        aporte,
-        CASE
-          WHEN prazo_dias <= 180 THEN 22.5
-          WHEN prazo_dias <= 360 THEN 20
-          WHEN prazo_dias <= 720 THEN 17.5
-          ELSE 15
-        END AS aliquotaIr,
-        rendimento_bruto AS cdbEquivalente
-       FROM oraculo_lci_cdb_registros
-       ORDER BY datetime(created_at) DESC
-       LIMIT ?1 OFFSET ?2`
-    )
-      .bind(limit, offset)
-      .all()
-
-    const data = (results ?? []) as RegistroLciCdb[]
-
-    return jsonResponse({ ok: true, data, total, limit, offset })
-  } catch (error) {
-    return jsonResponse(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Falha ao buscar registros LCI/CDB.'
-      },
-      500
-    )
-  }
-}
+// GET handler REMOVIDO por segurança.\r
+// Dados de usuário NÃO podem ser servidos publicamente.\r
+// Acesso somente via fluxo autenticado (oraculo-auth.ts → retrieve).\r
 
 export const onRequestPost = async ({ env, request }: Context) => {
   try {
