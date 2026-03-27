@@ -59,6 +59,13 @@ export const onRequestGet = async ({ env }: Context) => {
   try {
     const db = getDbOrThrow(env)
 
+    // Self-healing migration: ensure vencimento column exists
+    try {
+      await db.prepare(`ALTER TABLE oraculo_tesouro_ipca_lotes ADD COLUMN vencimento TEXT DEFAULT ''`).run()
+    } catch {
+      // Column already exists — safe to ignore
+    }
+
     const { results } = await db.prepare(
       `SELECT
         id,
