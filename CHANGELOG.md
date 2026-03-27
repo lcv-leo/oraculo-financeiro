@@ -5,6 +5,7 @@
 - **Email linkage nas tabelas individuais**: coluna `email` adicionada a `oraculo_tesouro_ipca_lotes` e `oraculo_lci_cdb_registros` via self-healing migration. Todos os registros são vinculados ao email do usuário ao salvar via autenticação.
 - **Auto-exclusão de dados (frontend)**: botão "🗑️ Excluir Meus Dados" no frontend aberto com fluxo completo de email/token (actions `request-delete-token` + `verify-delete`). Cascata por email em todas as 4 tabelas.
 - **`stampEmailOnRecords`**: função auxiliar em `oraculo-auth.ts` que vincula email aos registros individuais referenciados no `dados_json` durante `verify-save`.
+- **Sessão persistente (60 min)**: após autenticação via OTP, backend gera session token (UUID) com TTL de 60 minutos. Frontend armazena em `sessionStorage` (sobrevive F5, não sobrevive fechar janela). Ao recarregar, dados são restaurados automaticamente via `session-retrieve` com validação server-side e rotação de token.
 
 ### Corrigido
 - **Exposição de dados no frontend público**: registros em `oraculo_tesouro_ipca_lotes` e `oraculo_lci_cdb_registros` permaneciam após exclusão do usuário no admin-app. Agora a cascata de exclusão remove registros por IDs do JSON + por email (safety net) em todas as tabelas.
@@ -14,6 +15,7 @@
 
 ### Melhorado
 - **Botão "Análise Inteligente" reposicionado**: movido para antes dos botões de ação, centralizado em linha própria com largura 100% e espaçamento adequado.
+- **Notificações de sessão**: autenticação bem-sucedida informa ao usuário que a sessão dura 60 minutos e sobrevive refresh.
 
 ## [v01.06.02] — 2026-03-27
 ### Corrigido

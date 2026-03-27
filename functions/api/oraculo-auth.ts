@@ -1,5 +1,6 @@
 // Módulo: oraculo-financeiro/functions/api/oraculo-auth.ts
 // Descrição: Autenticação por e-mail + token OTP para persistência opt-in de dados.
+// Sessão: após OTP bem-sucedido, gera session token (UUID) com TTL de 60 minutos.
 // Bindings: BIGDATA_DB (D1), RESEND_API_KEY (env var)
 
 interface Env {
@@ -21,6 +22,19 @@ function generateOTP(): string {
   const array = new Uint32Array(1)
   crypto.getRandomValues(array)
   return String(array[0] % 1000000).padStart(6, '0')
+}
+
+const SESSION_TTL_MS = 60 * 60 * 1000 // 60 minutos
+
+/** Gera um session token (UUID) com TTL de 60 minutos após OTP bem-sucedido */
+async function createSessionToken(db: Env['BIGDATA_DB'], email: string): Promise<string> {
+  const sessionToken = crypto.randomUUID()
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString()
+  const id = crypto.randomUUID()
+  await db.prepare(
+    `INSERT INTO oraculo_auth_tokens (id, email, token, action, expires_at) VALUES (?, ?, ?, 'session', ?)`
+  ).bind(id, email, sessionToken, expiresAt).run()
+  return sessionToken
 }
 
 async function sendTokenEmail(email: string, token: string, apiKey: string): Promise<boolean> {
@@ -190,7 +204,10 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
       // Vincular email nos registros individuais (ownership)
       await stampEmailOnRecords(db, email, row.dados_json as string)
 
-      return jsonResponse({ ok: true, message: 'Dados salvos com sucesso.' })
+      // Gerar session token para persistência de sessão (60 min)
+      const sessionToken = await createSessionToken(db, email)
+
+      return jsonResponse({ ok: true, message: 'Dados salvos com sucesso.', sessionToken })
     }
 
     // ── REQUEST-TOKEN: verifica se há dados → gera token → envia e-mail ─────
@@ -245,7 +262,49 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
 
       if (!userData) return jsonResponse({ ok: false, error: 'Nenhum dado encontrado.' }, 404)
 
-      return jsonResponse({ ok: true, dados: JSON.parse(userData.dados_json as string) })
+      // Gerar session token para persistência de sessão (60 min)
+      const sessionToken = await createSessionToken(db, email)
+
+      return jsonResponse({ ok: true, dados: JSON.parse(userData.dados_json as string), sessionToken })
+    }
+
+    // ── SESSION-RETRIEVE: valida session token (sem OTP) → retorna dados ────
+    // Usado para restaurar dados após F5/reload sem exigir novo OTP.
+    if (action === 'session-retrieve') {
+      const sessionTokenInput = (body.token ?? '').trim()
+      if (!sessionTokenInput) return jsonResponse({ ok: false, error: 'Session token não fornecido.' }, 400)
+
+      const row = await db.prepare(
+        `SELECT id, email, expires_at FROM oraculo_auth_tokens 
+         WHERE token = ? AND action = 'session' AND used = 0 
+         ORDER BY created_at DESC LIMIT 1`
+      ).bind(sessionTokenInput).first()
+
+      if (!row) return jsonResponse({ ok: false, error: 'Sessão inválida ou expirada.' }, 401)
+
+      // Verificar se o email bate (defesa em profundidade)
+      if ((row.email as string).toLowerCase() !== email) {
+        return jsonResponse({ ok: false, error: 'Sessão não corresponde ao e-mail.' }, 401)
+      }
+
+      // Verificar expiração
+      if (new Date(row.expires_at as string) < new Date()) {
+        await db.prepare('UPDATE oraculo_auth_tokens SET used = 1 WHERE id = ?').bind(row.id).run()
+        return jsonResponse({ ok: false, error: 'Sessão expirada. Autentique-se novamente.' }, 401)
+      }
+
+      // Buscar dados do usuário
+      const userData = await db.prepare(
+        'SELECT dados_json FROM oraculo_user_data WHERE email = ? LIMIT 1'
+      ).bind(email).first()
+
+      if (!userData) return jsonResponse({ ok: false, error: 'Nenhum dado encontrado.' }, 404)
+
+      // Renovar session token (gerar novo, invalidar antigo)
+      await db.prepare('UPDATE oraculo_auth_tokens SET used = 1 WHERE id = ?').bind(row.id).run()
+      const newSessionToken = await createSessionToken(db, email)
+
+      return jsonResponse({ ok: true, dados: JSON.parse(userData.dados_json as string), sessionToken: newSessionToken })
     }
 
     // ── REQUEST-DELETE-TOKEN: gera token para exclusão de dados ──────────
