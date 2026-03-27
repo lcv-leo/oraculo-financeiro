@@ -21,7 +21,7 @@ import {
   diasParaMenorIr as calcDiasParaMenorIr,
 } from './lib/finance'
 
-const APP_VERSION = 'APP v01.03.00'
+const APP_VERSION = 'APP v01.04.00'
 
 type TabId = 'lci-lca' | 'tesouro-ipca'
 
@@ -192,9 +192,33 @@ function App() {
   const [analisandoIa, setAnalisandoIa] = useState(false)
   const [analiseIa, setAnaliseIa] = useState<AnaliseIA | null>(null)
   
-  // Imagem Drag/Drop
+  // Imagem/PDF Drag/Drop
   const [isDragging, setIsDragging] = useState(false)
   const [processandoImg, setProcessandoImg] = useState(false)
+
+  // Contato + E-mail modals
+  const [showContato, setShowContato] = useState(false)
+  const [contatoForm, setContatoForm] = useState({ name: '', phone: '', email: '', message: '' })
+  const [contatoSending, setContatoSending] = useState(false)
+  const [showEmailModal, setShowEmailModal] = useState(false)
+  const [emailDestinoInput, setEmailDestinoInput] = useState('')
+  const [emailSending, setEmailSending] = useState(false)
+
+  // Floating scroll buttons
+  const [showScrollTop, setShowScrollTop] = useState(false)
+  const [showScrollBottom, setShowScrollBottom] = useState(false)
+  useEffect(() => {
+    const onScroll = () => {
+      const st = window.scrollY
+      const docH = document.documentElement.scrollHeight
+      const winH = window.innerHeight
+      setShowScrollTop(st > 200)
+      setShowScrollBottom(docH - st - winH > 200)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    onScroll()
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   // ── Auth (email + OTP) ──────────────────────────────────────────────────
   type AuthMode = 'save' | 'retrieve' | null
@@ -550,6 +574,185 @@ function App() {
     }
   }
 
+  // ── Contato handler ──────────────────────────────────────────────────
+
+  const formatPhone = (val: string) => {
+    const v = val.replace(/\D/g, '').substring(0, 11)
+    if (v.length === 0) return ''
+    if (v.length <= 2) return `(${v}`
+    if (v.length <= 3) return `(${v.slice(0, 2)}) ${v.slice(2)}`
+    if (v.length <= 7) return `(${v.slice(0, 2)}) ${v.slice(2, 3)} ${v.slice(3)}`
+    return `(${v.slice(0, 2)}) ${v.slice(2, 3)} ${v.slice(3, 7)}-${v.slice(7)}`
+  }
+
+  const handleContatoSubmit = async () => {
+    if (!contatoForm.name || !contatoForm.email || !contatoForm.message) {
+      pushNotification('warning', 'Campos obrigatórios', 'Preencha nome, e-mail e mensagem.')
+      return
+    }
+    setContatoSending(true)
+    try {
+      const res = await fetch('/api/contato', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(contatoForm),
+      })
+      const data = await res.json() as { ok: boolean; message?: string; error?: string }
+      if (data.ok) {
+        pushNotification('success', 'Enviado!', data.message ?? 'Mensagem enviada com sucesso.')
+        setShowContato(false)
+        setContatoForm({ name: '', phone: '', email: '', message: '' })
+      } else {
+        pushNotification('error', 'Erro', data.error ?? 'Falha ao enviar.')
+      }
+    } catch {
+      pushNotification('error', 'Erro de rede', 'Não foi possível conectar ao servidor.')
+    } finally {
+      setContatoSending(false)
+    }
+  }
+
+  // ── E-mail report ───────────────────────────────────────────────────
+
+  const gerarTextoRelatorio = (): string => {
+    const div = '\n' + '─'.repeat(28) + '\n'
+    let t = `📈 ANÁLISE FINANCEIRA — ORÁCULO FINANCEIRO\n\n`
+    t += `Parâmetros: CDI ${cdiAtual}% | IPCA ${ipcaProjetado}% | Duração ${durationAnos}a\n`
+
+    if (tesouroRegistros.length > 0) {
+      t += div + `TESOURO IPCA+ (${tesouroRegistros.length} lotes)\n\n`
+      tesouroRegistros.forEach((r, i) => {
+        t += `${i + 1}. ${r.dataCompra} — R$ ${r.valorInvestido.toLocaleString('pt-BR')} — ${r.taxaContratada}% a.a. — ${r.sinal.toUpperCase()}\n`
+        t += `   ${r.analise}\n\n`
+      })
+    }
+
+    if (lciRegistros.length > 0) {
+      t += div + `LCI/LCA (${lciRegistros.length} registros)\n\n`
+      lciRegistros.forEach((r, i) => {
+        t += `${i + 1}. R$ ${r.aporte.toLocaleString('pt-BR')} — ${r.prazoDias}d — ${r.taxaLciLca}% CDI ≈ CDB ${r.cdbEquivalente.toFixed(2)}%\n`
+      })
+    }
+
+    if (analiseIa) {
+      const iaTxt = analiseIa.analise
+        .replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n\n')
+        .replace(/<strong>(.*?)<\/strong>/gi, '*$1*').replace(/<b>(.*?)<\/b>/gi, '*$1*')
+        .replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+      t += div + `ANÁLISE INTELIGENTE (IA)\n\n` + iaTxt.trim() + '\n'
+    }
+
+    t += div + `Gerado via Oráculo Financeiro ${APP_VERSION}`
+    return t
+  }
+
+  const gerarHtmlRelatorio = (): string => {
+    const font = "font-family: 'Inter', system-ui, -apple-system, sans-serif;"
+    const shadow = "box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
+
+    const lotesHtml = tesouroRegistros.map(r => `
+      <tr>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0;">${r.dataCompra.split('-').reverse().join('/')}</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0; font-weight: 700;">R$ ${r.valorInvestido.toLocaleString('pt-BR')}</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0;">${r.taxaContratada.toFixed(2)}%</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0;">
+          <span style="display: inline-block; padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 700; background: ${r.sinal === 'vender' ? '#fef2f2' : '#f0fdf4'}; color: ${r.sinal === 'vender' ? '#dc2626' : '#16a34a'};">${r.sinal.toUpperCase()}</span>
+        </td>
+      </tr>
+    `).join('')
+
+    const lciHtml = lciRegistros.map(r => `
+      <tr>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0; font-weight: 700;">R$ ${r.aporte.toLocaleString('pt-BR')}</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0;">${r.prazoDias} dias</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0;">${r.taxaLciLca.toFixed(2)}% CDI</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0;">≈ CDB ${r.cdbEquivalente.toFixed(2)}%</td>
+      </tr>
+    `).join('')
+
+    const iaSection = analiseIa ? `
+      <div style="margin-top: 32px; padding: 28px; background: #fff; border-radius: 20px; border: 1px solid rgba(0,0,0,0.05); ${shadow}">
+        <h3 style="font-size: 20px; font-weight: 800; color: #1a73e8; margin: 0 0 16px; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0;">✦ Análise Inteligente</h3>
+        <div style="font-size: 15px; line-height: 1.7; color: #333;">${analiseIa.analise}</div>
+      </div>
+    ` : ''
+
+    return `
+    <!DOCTYPE html>
+    <html lang="pt-br">
+    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Análise Financeira</title></head>
+    <body style="margin: 0; padding: 0; background: #f5f4f4; ${font}">
+      <div style="max-width: 700px; margin: 0 auto; padding: 40px 20px;">
+        <header style="text-align: center; margin-bottom: 32px;">
+          <h1 style="font-size: 28px; font-weight: 900; color: #0d0d0d; margin: 0 0 8px;">Oráculo Financeiro</h1>
+          <p style="font-size: 14px; color: #888; margin: 0;">Análise personalizada de renda fixa</p>
+        </header>
+
+        <div style="background: #fff; border-radius: 20px; padding: 24px; border: 1px solid rgba(0,0,0,0.05); ${shadow} margin-bottom: 24px;">
+          <h3 style="font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 12px;">Parâmetros</h3>
+          <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+            <div style="background: #f5f4f4; padding: 10px 16px; border-radius: 10px;"><strong>CDI:</strong> ${cdiAtual}%</div>
+            <div style="background: #f5f4f4; padding: 10px 16px; border-radius: 10px;"><strong>IPCA:</strong> ${ipcaProjetado}%</div>
+            <div style="background: #f5f4f4; padding: 10px 16px; border-radius: 10px;"><strong>Duração:</strong> ${durationAnos} anos</div>
+          </div>
+        </div>
+
+        ${tesouroRegistros.length > 0 ? `
+        <div style="background: #fff; border-radius: 20px; padding: 24px; border: 1px solid rgba(0,0,0,0.05); ${shadow} margin-bottom: 24px;">
+          <h3 style="font-size: 18px; font-weight: 700; color: #0d0d0d; margin: 0 0 16px;">Tesouro IPCA+ (${tesouroRegistros.length} lotes)</h3>
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <thead><tr style="background: #f5f4f4;"><th style="padding: 10px 12px; text-align: left;">Data</th><th style="padding: 10px 12px; text-align: left;">Valor</th><th style="padding: 10px 12px; text-align: left;">Taxa</th><th style="padding: 10px 12px; text-align: left;">Sinal</th></tr></thead>
+            <tbody>${lotesHtml}</tbody>
+          </table>
+        </div>` : ''}
+
+        ${lciRegistros.length > 0 ? `
+        <div style="background: #fff; border-radius: 20px; padding: 24px; border: 1px solid rgba(0,0,0,0.05); ${shadow} margin-bottom: 24px;">
+          <h3 style="font-size: 18px; font-weight: 700; color: #0d0d0d; margin: 0 0 16px;">LCI/LCA (${lciRegistros.length} registros)</h3>
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <thead><tr style="background: #f5f4f4;"><th style="padding: 10px 12px; text-align: left;">Aporte</th><th style="padding: 10px 12px; text-align: left;">Prazo</th><th style="padding: 10px 12px; text-align: left;">Taxa</th><th style="padding: 10px 12px; text-align: left;">CDB Eq.</th></tr></thead>
+            <tbody>${lciHtml}</tbody>
+          </table>
+        </div>` : ''}
+
+        ${iaSection}
+
+        <footer style="text-align: center; margin-top: 32px; padding-top: 16px; border-top: 1px solid #eee;">
+          <p style="font-size: 12px; color: #888;">Gerado via Oráculo Financeiro ${APP_VERSION}</p>
+        </footer>
+      </div>
+    </body>
+    </html>
+    `
+  }
+
+  const dispararEmailRelatorio = async (emailDestino: string) => {
+    setEmailSending(true)
+    try {
+      const res = await fetch('/api/enviar-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          emailDestino,
+          relatorioHtml: gerarHtmlRelatorio(),
+          relatorioTexto: gerarTextoRelatorio(),
+        }),
+      })
+      const data = await res.json() as { ok: boolean; message?: string; error?: string }
+      if (data.ok) {
+        pushNotification('success', 'Enviado!', data.message ?? 'E-mail enviado com sucesso.')
+        setShowEmailModal(false)
+        setEmailDestinoInput('')
+      } else {
+        pushNotification('error', 'Erro', data.error ?? 'Falha ao enviar e-mail.')
+      }
+    } catch {
+      pushNotification('error', 'Erro de rede', 'Não foi possível enviar o e-mail.')
+    } finally {
+      setEmailSending(false)
+    }
+  }
+
   const handleAdicionarLote = () => {
     if (!novoLoteDataCompra || novoLoteValor <= 0 || novoLoteTaxa <= 0 || taxaAtualTesouro <= 0) {
       pushNotification('warning', 'Parâmetros inválidos', 'Preencha data, valor e taxas válidas para o lote.')
@@ -672,13 +875,15 @@ function App() {
   }
 
   const handleProcessFile = async (file: File) => {
-    if (!file || !file.type.startsWith('image/')) {
-      pushNotification('warning', 'Formato inválido', 'Por favor, arraste ou selecione apenas arquivos de imagem (PNG, JPG).')
+    const isImage = file.type.startsWith('image/')
+    const isPdf = file.type === 'application/pdf'
+    if (!file || (!isImage && !isPdf)) {
+      pushNotification('warning', 'Formato inválido', 'Selecione uma imagem (PNG, JPG) ou um arquivo PDF.')
       return
     }
 
     setProcessandoImg(true)
-    pushNotification('info', 'Processando imagem', 'O Gemini está extraindo os dados do extrato...')
+    pushNotification('info', isPdf ? 'Processando PDF' : 'Processando imagem', 'O Gemini está extraindo os dados do extrato...')
 
     try {
       const base64Data = await new Promise<string>((resolve, reject) => {
@@ -703,7 +908,7 @@ function App() {
       }
 
       if (!payload.data || payload.data.length === 0) {
-        pushNotification('warning', 'Nenhum dado encontrado', 'A IA não conseguiu identificar lotes do Tesouro IPCA+ na imagem.')
+        pushNotification('warning', 'Nenhum dado encontrado', 'A IA não conseguiu identificar lotes do Tesouro IPCA+ no arquivo.')
         return
       }
 
@@ -1012,7 +1217,7 @@ function App() {
             </div>
             <label className="btn-ia" style={{ cursor: processandoImg ? 'not-allowed' : 'pointer', margin: 0, padding: '0.5rem 1.25rem', opacity: processandoImg ? 0.6 : 1, pointerEvents: processandoImg ? 'none' : 'auto' }}>
               {processandoImg ? '⏳ Processando...' : 'Upload Imagem'}
-              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleInputFileChange} disabled={processandoImg} />
+              <input type="file" accept="image/*,.pdf,application/pdf" style={{ display: 'none' }} onChange={handleInputFileChange} disabled={processandoImg} />
             </label>
           </div>
 
@@ -1154,7 +1359,7 @@ function App() {
           <div className="actions-grid">
             <button onClick={handleAdicionarLote} type="button" className="btn-add">+ Adicionar lote</button>
             <button onClick={() => setAuthMode('save')} type="button">Salvar Análise</button>
-            <button onClick={() => setAuthMode('retrieve')} type="button" className="ghost">Resgatar Análise</button>
+            <button onClick={() => setAuthMode('retrieve')} type="button" style={{ border: '1px solid rgba(0,0,0,0.12)' }}>Resgatar Análise</button>
             <button onClick={() => void handleAnalisarIa()} type="button" className="btn-ia" disabled={analisandoIa}>
               {analisandoIa ? 'Analisando...' : '✦ Análise Inteligente'}
             </button>
@@ -1240,8 +1445,85 @@ function App() {
 
 
       <footer className="app-version-footer">
+        <div className="footer-actions">
+          <button type="button" className="ghost" onClick={() => setShowContato(true)}>✉ Contato</button>
+          <button type="button" className="ghost" onClick={() => setShowEmailModal(true)}>📧 Enviar por E-mail</button>
+        </div>
         <span>{APP_VERSION}</span>
       </footer>
+
+      {/* ── Floating Scroll FABs ─────────────────────────────────────── */}
+      {(showScrollTop || showScrollBottom) && (
+        <div className="floating-scroll-btns">
+          {showScrollTop && (
+            <button type="button" className="floating-scroll-btn" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} title="Voltar ao topo" aria-label="Voltar ao topo">
+              ↑
+            </button>
+          )}
+          {showScrollBottom && (
+            <button type="button" className="floating-scroll-btn" onClick={() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })} title="Ir para o final" aria-label="Ir para o final">
+              ↓
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Contact Modal ─────────────────────────────────────────────── */}
+      {showContato && (
+        <div className="auth-overlay" onClick={() => setShowContato(false)} role="dialog" aria-modal="true" aria-labelledby="contact-title">
+          <div className="auth-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+            <h3 id="contact-title">Entre em Contato</h3>
+            <p>Envie-nos uma mensagem. Responderemos o mais breve possível.</p>
+            <form onSubmit={e => { e.preventDefault(); void handleContatoSubmit() }} autoComplete="on" style={{ display: 'grid', gap: '0.75rem' }}>
+              <label htmlFor="contact-name" className="sr-only">Seu Nome</label>
+              <input id="contact-name" type="text" name="name" required placeholder="Seu Nome" autoComplete="name" value={contatoForm.name} onChange={e => setContatoForm(p => ({ ...p, name: e.target.value }))} />
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 180px' }}>
+                  <label htmlFor="contact-phone" className="sr-only">Telefone</label>
+                  <input id="contact-phone" type="tel" name="phone" placeholder="Telefone (Opcional)" autoComplete="tel-national" inputMode="tel" maxLength={16} value={contatoForm.phone} onChange={e => setContatoForm(p => ({ ...p, phone: formatPhone(e.target.value) }))} />
+                </div>
+                <div style={{ flex: '1 1 180px' }}>
+                  <label htmlFor="contact-email" className="sr-only">Seu E-mail</label>
+                  <input id="contact-email" type="email" name="email" required placeholder="Seu E-mail" autoComplete="email" value={contatoForm.email} onChange={e => setContatoForm(p => ({ ...p, email: e.target.value }))} />
+                </div>
+              </div>
+              <label htmlFor="contact-message" className="sr-only">Mensagem</label>
+              <textarea id="contact-message" name="message" required maxLength={500} autoComplete="off" placeholder="Escreva sua mensagem aqui..." value={contatoForm.message} onChange={e => setContatoForm(p => ({ ...p, message: e.target.value }))} style={{ minHeight: '120px', resize: 'vertical' }} />
+              <div style={{ textAlign: 'right', fontSize: '11px', color: 500 - contatoForm.message.length < 50 ? '#ea4335' : '#888' }}>
+                {500 - contatoForm.message.length} restantes
+              </div>
+              <div className="auth-actions">
+                <button type="button" className="ghost" onClick={() => setShowContato(false)}>Cancelar</button>
+                <button type="submit" disabled={contatoSending}>{contatoSending ? 'Enviando...' : 'Enviar Mensagem'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Email Report Modal ───────────────────────────────────────── */}
+      {showEmailModal && (
+        <div className="auth-overlay" onClick={() => setShowEmailModal(false)} role="dialog" aria-modal="true" aria-labelledby="email-report-title">
+          <div className="auth-modal" onClick={e => e.stopPropagation()}>
+            <h3 id="email-report-title">📧 Enviar Análise por E-mail</h3>
+            <p>Insira o endereço de e-mail para receber o relatório financeiro completo e a análise da IA.</p>
+            <label htmlFor="email-relatorio-dest" className="sr-only">Endereço de E-mail</label>
+            <input
+              id="email-relatorio-dest" type="email" name="email" autoComplete="email"
+              placeholder="usuario@email.com" value={emailDestinoInput}
+              onChange={e => setEmailDestinoInput(e.target.value)} disabled={emailSending}
+              onKeyDown={e => e.key === 'Enter' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailDestinoInput) && void dispararEmailRelatorio(emailDestinoInput.trim())}
+              autoFocus
+            />
+            <div className="auth-actions">
+              <button type="button" className="ghost" onClick={() => setShowEmailModal(false)}>Cancelar</button>
+              <button type="button" onClick={() => void dispararEmailRelatorio(emailDestinoInput.trim())} disabled={emailSending || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailDestinoInput)}>
+                {emailSending ? 'Enviando...' : 'Enviar E-mail'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Auth Modal ────────────────────────────────────────────────── */}
       {authMode && (
