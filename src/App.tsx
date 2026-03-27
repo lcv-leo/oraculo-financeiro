@@ -1461,8 +1461,8 @@ function App() {
             </label>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
-            <button onClick={() => void handleAnalisarIa()} type="button" className="btn-ia" disabled={analisandoIa}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px', marginBottom: '16px' }}>
+            <button onClick={() => void handleAnalisarIa()} type="button" className="btn-ia" disabled={analisandoIa} style={{ width: '100%' }}>
               {analisandoIa ? 'Analisando...' : '✦ Análise Inteligente'}
             </button>
           </div>

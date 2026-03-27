@@ -8,6 +8,10 @@
 
 ### Corrigido
 - **Exposição de dados no frontend público**: registros em `oraculo_tesouro_ipca_lotes` e `oraculo_lci_cdb_registros` permaneciam após exclusão do usuário no admin-app. Agora a cascata de exclusão remove registros por IDs do JSON + por email (safety net) em todas as tabelas.
+- **Cron resetava ao deploy**: `triggers.crons` hardcoded em `wrangler.json` sobrescrevia a configuração de agendamento a cada deploy. Removido — agendamento agora gerenciado exclusivamente via API Cloudflare (admin-app).
+
+### Melhorado
+- **Botão "Análise Inteligente" reposicionado**: movido para antes dos botões de ação, centralizado em linha própria com largura 100% e espaçamento adequado.
 
 ## [v01.06.02] — 2026-03-27
 ### Corrigido
