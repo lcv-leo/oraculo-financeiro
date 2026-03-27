@@ -222,6 +222,41 @@ function App() {
   const [authToken, setAuthToken] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
 
+  // ── Sessão persistente (sessionStorage, 60 min, validada server-side) ────
+  const SESSION_KEY = 'oraculo_session'
+  const SESSION_TTL_MS = 60 * 60 * 1000 // 60 minutos
+
+  type SessionData = { email: string; sessionToken: string; expiresAt: number }
+
+  /** Cria sessão com token do backend */
+  const createSession = (email: string, sessionToken: string) => {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+      email,
+      sessionToken,
+      expiresAt: Date.now() + SESSION_TTL_MS,
+    }))
+  }
+
+  /** Retorna sessão ativa (email + token), ou null se expirada/inexistente */
+  const getActiveSession = (): SessionData | null => {
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY)
+      if (!raw) return null
+      const session = JSON.parse(raw) as SessionData
+      if (Date.now() > session.expiresAt || !session.sessionToken) {
+        sessionStorage.removeItem(SESSION_KEY)
+        return null
+      }
+      return session
+    } catch {
+      sessionStorage.removeItem(SESSION_KEY)
+      return null
+    }
+  }
+
+  /** Destrói a sessão */
+  const clearSession = () => sessionStorage.removeItem(SESSION_KEY)
+
   // Tesouro Transparente — taxas IPCA+ por vencimento
   const [titulosIpca, setTitulosIpca] = useState<TituloTD[]>([])
   const [taxaRef, setTaxaRef] = useState<string | null>(null)
@@ -404,9 +439,55 @@ function App() {
     }, 4200)
   }
 
-  // NOTA: NÃO carregar registros automaticamente no mount.
-  // Dados só são populados via fluxo autenticado (Resgatar Análise → email/token).
-  // Isso garante que nenhum dado é exibido no frontend público sem autenticação.
+  // ── Auto-retrieve se sessão válida (server-side session token) ───────────
+  // Sessão validada pelo backend via session-retrieve (token rotável).
+  // Nenhum dado é exibido sem autenticação server-side.
+  useEffect(() => {
+    const session = getActiveSession()
+    if (!session) return
+
+    const autoRetrieve = async () => {
+      try {
+        const res = await fetch('/api/oraculo-auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'session-retrieve',
+            email: session.email,
+            token: session.sessionToken,
+          }),
+        })
+        const result = await res.json() as {
+          ok: boolean
+          dados?: ReturnType<typeof collectAnaliseData>
+          sessionToken?: string
+          error?: string
+        }
+
+        if (result.ok && result.dados) {
+          if (result.dados.tesouroRegistros) setTesouroRegistros(result.dados.tesouroRegistros)
+          if (result.dados.lciRegistros) setLciRegistros(result.dados.lciRegistros)
+          if (result.dados.taxaAtualTesouro) setTaxaAtualTesouro(result.dados.taxaAtualTesouro)
+          if (result.dados.durationAnos) setDurationAnos(result.dados.durationAnos)
+          if (result.dados.cdiAtual) setCdiAtual(result.dados.cdiAtual)
+          if (result.dados.ipcaProjetado) setIpcaProjetado(result.dados.ipcaProjetado)
+          if (result.dados.prazoDias) setPrazoDias(result.dados.prazoDias)
+          if (result.dados.taxaLciLca) setTaxaLciLca(result.dados.taxaLciLca)
+          if (result.dados.aporte) setAporte(result.dados.aporte)
+          // Renovar sessão com novo token rotacionado
+          if (result.sessionToken) createSession(session.email, result.sessionToken)
+          pushNotification('success', 'Sessão restaurada', `Dados de ${session.email} carregados automaticamente.`)
+        } else {
+          // Sessão inválida/expirada no backend — limpar local
+          clearSession()
+        }
+      } catch {
+        // Falha de rede — não limpar sessão, usuário pode tentar novamente
+      }
+    }
+    void autoRetrieve()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => { setAnaliseIa(null) }, [activeTab])
 
@@ -506,16 +587,24 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, email: authEmail, token: authToken }),
       })
-      const result = await res.json() as { ok: boolean; message?: string; error?: string; dados?: ReturnType<typeof collectAnaliseData> }
+      const result = await res.json() as {
+        ok: boolean
+        message?: string
+        error?: string
+        dados?: ReturnType<typeof collectAnaliseData>
+        sessionToken?: string
+      }
 
       if (result.ok) {
         if (authMode === 'delete') {
-          // Limpar todos os dados locais após exclusão
+          // Limpar todos os dados locais e sessão após exclusão
           setTesouroRegistros([])
           setLciRegistros([])
+          clearSession()
           pushNotification('success', 'Dados excluídos', result.message ?? 'Todos os seus dados foram removidos permanentemente.')
         } else if (authMode === 'save') {
-          pushNotification('success', 'Salvo!', result.message ?? 'Dados salvos com sucesso.')
+          if (result.sessionToken) createSession(authEmail, result.sessionToken)
+          pushNotification('success', '✅ Salvo com sucesso!', `Dados vinculados a ${authEmail}. Sua sessão permanece ativa por 60 minutos — você pode atualizar a página sem perder seus dados.`)
         } else if (result.dados) {
           // Restaurar dados
           if (result.dados.tesouroRegistros) setTesouroRegistros(result.dados.tesouroRegistros)
@@ -527,7 +616,8 @@ function App() {
           if (result.dados.prazoDias) setPrazoDias(result.dados.prazoDias)
           if (result.dados.taxaLciLca) setTaxaLciLca(result.dados.taxaLciLca)
           if (result.dados.aporte) setAporte(result.dados.aporte)
-          pushNotification('success', 'Resgatado!', 'Seus dados foram restaurados com sucesso.')
+          if (result.sessionToken) createSession(authEmail, result.sessionToken)
+          pushNotification('success', '✅ Dados restaurados!', `Sessão ativa para ${authEmail} por 60 minutos. Você pode atualizar a página sem perder seus dados.`)
         }
         // Fechar modal
         setAuthMode(null)
