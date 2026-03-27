@@ -1,5 +1,9 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.07.01] — 2026-03-27
+### Melhorado
+- **Taxonomia de Juros Semestrais**: Títulos "Tesouro IPCA+ com Juros Semestrais" agora recebem o sufixo `(Semestral)` na string de vencimento (ex: `15/08/2032 (Semestral)`). Isso resolve o bug visual no dropdown onde as NTN-Bs Principais se misturavam às NTN-Bs padrão, impedindo o usuário de selecionar a opção correta devido à sobreposição de \`value\` no `<select>`, e melhora a clareza do relatório.
+
 ## [v01.07.00] — 2026-03-27
 ### Adicionado
 - **Email linkage nas tabelas individuais**: coluna `email` adicionada a `oraculo_tesouro_ipca_lotes` e `oraculo_lci_cdb_registros` via self-healing migration. Todos os registros são vinculados ao email do usuário ao salvar via autenticação.
