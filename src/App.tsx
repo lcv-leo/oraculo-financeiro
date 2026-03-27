@@ -281,8 +281,12 @@ function App() {
           setTaxaRef(payload.dataReferencia ?? null)
           if (payload.titulos?.length) {
             // Ordenar por vencimento cronológico (mais próximo → mais distante)
-            const toKey = (d: string) => { const [dd, mm, yy] = d.split('/'); return `${yy}${mm}${dd}` }
-            const sorted = [...payload.titulos].sort((a, b) => toKey(a.vencimento).localeCompare(toKey(b.vencimento)))
+            const toKey = (d: string) => { const [dd, mm, yy] = d.slice(0, 10).split('/'); return `${yy}${mm}${dd}` }
+            const mapped = payload.titulos.map(t => ({
+              ...t,
+              vencimento: t.tipo.includes('Semestrais') ? `${t.vencimento} (Semestral)` : t.vencimento
+            }))
+            const sorted = mapped.sort((a, b) => toKey(a.vencimento).localeCompare(toKey(b.vencimento)))
             setTitulosIpca(sorted)
             if (sorted.length > 0) {
               setNovoLoteVencimento(sorted[0].vencimento)
