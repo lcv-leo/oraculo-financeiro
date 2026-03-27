@@ -1,5 +1,14 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.07.00] — 2026-03-27
+### Adicionado
+- **Email linkage nas tabelas individuais**: coluna `email` adicionada a `oraculo_tesouro_ipca_lotes` e `oraculo_lci_cdb_registros` via self-healing migration. Todos os registros são vinculados ao email do usuário ao salvar via autenticação.
+- **Auto-exclusão de dados (frontend)**: botão "🗑️ Excluir Meus Dados" no frontend aberto com fluxo completo de email/token (actions `request-delete-token` + `verify-delete`). Cascata por email em todas as 4 tabelas.
+- **`stampEmailOnRecords`**: função auxiliar em `oraculo-auth.ts` que vincula email aos registros individuais referenciados no `dados_json` durante `verify-save`.
+
+### Corrigido
+- **Exposição de dados no frontend público**: registros em `oraculo_tesouro_ipca_lotes` e `oraculo_lci_cdb_registros` permaneciam após exclusão do usuário no admin-app. Agora a cascata de exclusão remove registros por IDs do JSON + por email (safety net) em todas as tabelas.
+
 ## [v01.06.02] — 2026-03-27
 ### Corrigido
 - **IR Tesouro Direto — remoção de MP 2026 fictícia**: `aliquotaIrRegressiva` aplicava alíquota fixa de 17,5% para compras a partir de 2026. Corrigido para tabela regressiva padrão (22,5% / 20% / 17,5% / 15%) conforme Lei 11.033/2004 e site oficial do Tesouro Direto.

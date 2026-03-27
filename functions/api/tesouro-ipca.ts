@@ -59,12 +59,9 @@ export const onRequestGet = async ({ env }: Context) => {
   try {
     const db = getDbOrThrow(env)
 
-    // Self-healing migration: ensure vencimento column exists
-    try {
-      await db.prepare(`ALTER TABLE oraculo_tesouro_ipca_lotes ADD COLUMN vencimento TEXT DEFAULT ''`).run()
-    } catch {
-      // Column already exists — safe to ignore
-    }
+    // Self-healing migrations
+    try { await db.prepare(`ALTER TABLE oraculo_tesouro_ipca_lotes ADD COLUMN vencimento TEXT DEFAULT ''`).run() } catch { /* exists */ }
+    try { await db.prepare(`ALTER TABLE oraculo_tesouro_ipca_lotes ADD COLUMN email TEXT DEFAULT ''`).run() } catch { /* exists */ }
 
     const { results } = await db.prepare(
       `SELECT
@@ -132,10 +129,14 @@ export const onRequestPost = async ({ env, request }: Context) => {
     const diasParaMenorIr = Number(payload.diasParaMenorIr)
     const recomendacao = String(payload.sinal ?? '').trim() as Recomendacao
     const observacao = String(payload.analise ?? '').trim()
+    const email = String((payload as Record<string, unknown>).email ?? '').trim().toLowerCase()
 
     if (!dataCompra || [valorInvestido, taxaContratada, taxaAtual, diasParaMenorIr].some((n) => Number.isNaN(n))) {
       return jsonResponse({ ok: false, error: 'Payload inválido para lote Tesouro IPCA+.' }, 400)
     }
+
+    // Self-healing: add email column if missing
+    try { await db.prepare(`ALTER TABLE oraculo_tesouro_ipca_lotes ADD COLUMN email TEXT DEFAULT ''`).run() } catch { /* exists */ }
 
     if (!['vender', 'manter'].includes(recomendacao)) {
       return jsonResponse({ ok: false, error: 'Recomendação inválida.' }, 400)
@@ -155,8 +156,9 @@ export const onRequestPost = async ({ env, request }: Context) => {
         taxa_atual,
         dias_para_menor_ir,
         recomendacao,
-        observacao
-      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`
+        observacao,
+        email
+      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`
     )
       .bind(
         id,
@@ -168,7 +170,8 @@ export const onRequestPost = async ({ env, request }: Context) => {
         taxaAtual,
         diasParaMenorIr,
         recomendacao,
-        observacao
+        observacao,
+        email
       )
       .run()
 

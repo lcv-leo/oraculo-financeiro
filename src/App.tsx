@@ -21,7 +21,7 @@ import {
   diasParaMenorIr as calcDiasParaMenorIr,
 } from './lib/finance'
 
-const APP_VERSION = 'APP v01.06.02'
+const APP_VERSION = 'APP v01.07.00'
 
 type TabId = 'lci-lca' | 'tesouro-ipca'
 
@@ -221,7 +221,7 @@ function App() {
   }, [])
 
   // ── Auth (email + OTP) ──────────────────────────────────────────────────
-  type AuthMode = 'save' | 'retrieve' | null
+  type AuthMode = 'save' | 'retrieve' | 'delete' | null
   type AuthStep = 'email' | 'token'
   const [authMode, setAuthMode] = useState<AuthMode>(null)
   const [authStep, setAuthStep] = useState<AuthStep>('email')
@@ -509,9 +509,9 @@ function App() {
     }
     setAuthLoading(true)
     try {
-      const action = authMode === 'save' ? 'save' : 'request-token'
+      const action = authMode === 'save' ? 'save' : authMode === 'delete' ? 'request-delete-token' : 'request-token'
       const body: Record<string, unknown> = { action, email: authEmail }
-      if (action === 'save') body.dados = collectAnaliseData()
+      if (authMode === 'save') body.dados = collectAnaliseData()
 
       const res = await fetch('/api/oraculo-auth', {
         method: 'POST',
@@ -537,7 +537,7 @@ function App() {
     if (authToken.length !== 6) return
     setAuthLoading(true)
     try {
-      const action = authMode === 'save' ? 'verify-save' : 'retrieve'
+      const action = authMode === 'save' ? 'verify-save' : authMode === 'delete' ? 'verify-delete' : 'retrieve'
       const res = await fetch('/api/oraculo-auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -546,7 +546,12 @@ function App() {
       const result = await res.json() as { ok: boolean; message?: string; error?: string; dados?: ReturnType<typeof collectAnaliseData> }
 
       if (result.ok) {
-        if (authMode === 'save') {
+        if (authMode === 'delete') {
+          // Limpar todos os dados locais após exclusão
+          setTesouroRegistros([])
+          setLciRegistros([])
+          pushNotification('success', 'Dados excluídos', result.message ?? 'Todos os seus dados foram removidos permanentemente.')
+        } else if (authMode === 'save') {
           pushNotification('success', 'Salvo!', result.message ?? 'Dados salvos com sucesso.')
         } else if (result.dados) {
           // Restaurar dados
@@ -1460,6 +1465,7 @@ function App() {
             <button onClick={handleAdicionarLote} type="button" className="btn-add">+ Adicionar lote</button>
             <button onClick={() => setAuthMode('save')} type="button">Salvar Análise</button>
             <button onClick={() => setAuthMode('retrieve')} type="button" style={{ border: '1px solid rgba(0,0,0,0.12)' }}>Resgatar Análise</button>
+            <button onClick={() => setAuthMode('delete')} type="button" style={{ border: '1px solid rgba(0,0,0,0.12)', color: '#c62828' }}>🗑️ Excluir Meus Dados</button>
             <button onClick={() => void handleAnalisarIa()} type="button" className="btn-ia" disabled={analisandoIa}>
               {analisandoIa ? 'Analisando...' : '✦ Análise Inteligente'}
             </button>
@@ -1629,12 +1635,14 @@ function App() {
       {authMode && (
         <div className="auth-overlay" onClick={() => { setAuthMode(null); setAuthStep('email'); setAuthEmail(''); setAuthToken('') }}>
           <div className="auth-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{authMode === 'save' ? '💾 Salvar Análise' : '📂 Resgatar Análise'}</h3>
+            <h3>{authMode === 'save' ? '💾 Salvar Análise' : authMode === 'delete' ? '🗑️ Excluir Meus Dados' : '📂 Resgatar Análise'}</h3>
 
             {authStep === 'email' && (
               <>
                 <p>{authMode === 'save'
                   ? 'Insira seu e-mail para proteger seus dados. Enviaremos um código de verificação.'
+                  : authMode === 'delete'
+                  ? 'Insira o e-mail vinculado aos dados que deseja excluir permanentemente. Enviaremos um código de confirmação.'
                   : 'Insira o e-mail usado anteriormente para resgatar sua análise.'}
                 </p>
                 <input

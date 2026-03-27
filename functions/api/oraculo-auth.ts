@@ -78,6 +78,34 @@ async function ensureTables(db: Env['BIGDATA_DB']): Promise<void> {
       created_at TEXT DEFAULT (datetime('now'))
     )
   `).run()
+
+  // Self-healing: add email columns to individual tables if missing
+  try { await db.prepare(`ALTER TABLE oraculo_tesouro_ipca_lotes ADD COLUMN email TEXT DEFAULT ''`).run() } catch { /* exists */ }
+  try { await db.prepare(`ALTER TABLE oraculo_lci_cdb_registros ADD COLUMN email TEXT DEFAULT ''`).run() } catch { /* exists */ }
+}
+
+// ─── Vincular email nos registros individuais referenciados no JSON ───────────
+
+async function stampEmailOnRecords(db: Env['BIGDATA_DB'], email: string, dadosJson: string): Promise<void> {
+  try {
+    const dados = JSON.parse(dadosJson)
+
+    const tesouroIds = (dados.tesouroRegistros ?? [])
+      .map((r: { id?: string }) => r.id)
+      .filter((v: unknown): v is string => typeof v === 'string' && v.length > 0)
+    const lciIds = (dados.lciRegistros ?? [])
+      .map((r: { id?: string }) => r.id)
+      .filter((v: unknown): v is string => typeof v === 'string' && v.length > 0)
+
+    for (const rid of tesouroIds) {
+      await db.prepare('UPDATE oraculo_tesouro_ipca_lotes SET email = ? WHERE id = ?').bind(email, rid).run()
+    }
+    for (const rid of lciIds) {
+      await db.prepare('UPDATE oraculo_lci_cdb_registros SET email = ? WHERE id = ?').bind(email, rid).run()
+    }
+  } catch {
+    // Falha no stamping não deve bloquear o flow principal
+  }
 }
 
 // ─── HANDLER ──────────────────────────────────────────────────────────────────
@@ -126,7 +154,7 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
       return jsonResponse({ ok: true, message: 'Código enviado para seu e-mail.' })
     }
 
-    // ── VERIFY-SAVE: valida token → persiste dados ──────────────────────────
+    // ── VERIFY-SAVE: valida token → persiste dados → vincula email ───────
     if (action === 'verify-save') {
       const token = (body.token ?? '').trim()
       if (!token) return jsonResponse({ ok: false, error: 'Token não fornecido.' }, 400)
@@ -159,6 +187,9 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
         ).bind(dataId, email, row.dados_json).run()
       }
 
+      // Vincular email nos registros individuais (ownership)
+      await stampEmailOnRecords(db, email, row.dados_json as string)
+
       return jsonResponse({ ok: true, message: 'Dados salvos com sucesso.' })
     }
 
@@ -188,7 +219,7 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
       return jsonResponse({ ok: true, message: 'Código enviado para seu e-mail.' })
     }
 
-    // ── RETRIEVE: valida token → retorna dados ──────────────────────────────
+    // ── RETRIEVE: valida token → retorna dados ──────────────────────────
     if (action === 'retrieve') {
       const token = (body.token ?? '').trim()
       if (!token) return jsonResponse({ ok: false, error: 'Token não fornecido.' }, 400)
@@ -215,6 +246,60 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
       if (!userData) return jsonResponse({ ok: false, error: 'Nenhum dado encontrado.' }, 404)
 
       return jsonResponse({ ok: true, dados: JSON.parse(userData.dados_json as string) })
+    }
+
+    // ── REQUEST-DELETE-TOKEN: gera token para exclusão de dados ──────────
+    if (action === 'request-delete-token') {
+      const existingData = await db.prepare(
+        'SELECT id FROM oraculo_user_data WHERE email = ? LIMIT 1'
+      ).bind(email).first()
+
+      if (!existingData) {
+        return jsonResponse({ ok: false, error: 'Nenhum dado encontrado para esse e-mail.' }, 404)
+      }
+
+      const token = generateOTP()
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
+      const id = crypto.randomUUID()
+
+      await db.prepare(
+        `INSERT INTO oraculo_auth_tokens (id, email, token, action, expires_at) VALUES (?, ?, ?, 'delete', ?)`
+      ).bind(id, email, token, expiresAt).run()
+
+      const sent = await sendTokenEmail(email, token, apiKey)
+      if (!sent) {
+        return jsonResponse({ ok: false, error: 'Falha ao enviar e-mail. Tente novamente.' }, 502)
+      }
+
+      return jsonResponse({ ok: true, message: 'Código de confirmação enviado para seu e-mail.' })
+    }
+
+    // ── VERIFY-DELETE: valida token → apaga TODOS os dados do usuário ────
+    if (action === 'verify-delete') {
+      const token = (body.token ?? '').trim()
+      if (!token) return jsonResponse({ ok: false, error: 'Token não fornecido.' }, 400)
+
+      const row = await db.prepare(
+        `SELECT id, expires_at FROM oraculo_auth_tokens 
+         WHERE email = ? AND token = ? AND action = 'delete' AND used = 0 
+         ORDER BY created_at DESC LIMIT 1`
+      ).bind(email, token).first()
+
+      if (!row) return jsonResponse({ ok: false, error: 'Código inválido ou expirado.' }, 401)
+      if (new Date(row.expires_at as string) < new Date()) {
+        return jsonResponse({ ok: false, error: 'Código expirado. Solicite um novo.' }, 401)
+      }
+
+      // Marcar token como usado
+      await db.prepare('UPDATE oraculo_auth_tokens SET used = 1 WHERE id = ?').bind(row.id).run()
+
+      // Cascata completa por email — todas as tabelas
+      await db.prepare('DELETE FROM oraculo_tesouro_ipca_lotes WHERE email = ?').bind(email).run()
+      await db.prepare('DELETE FROM oraculo_lci_cdb_registros WHERE email = ?').bind(email).run()
+      await db.prepare('DELETE FROM oraculo_user_data WHERE email = ?').bind(email).run()
+      await db.prepare('DELETE FROM oraculo_auth_tokens WHERE email = ?').bind(email).run()
+
+      return jsonResponse({ ok: true, message: 'Todos os seus dados foram excluídos permanentemente.' })
     }
 
     return jsonResponse({ ok: false, error: `Ação desconhecida: ${action}` }, 400)
