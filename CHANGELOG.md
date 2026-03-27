@@ -57,7 +57,7 @@
 - **Auto-fetch Taxa**: frontend busca taxa IPCA+ indicativa do Tesouro Transparente ao montar componente, com indicador visual (loading/referência).
 
 ### Alterado
-- **MP 2026 (IR)**: `aliquotaIrRegressiva` diferencia lotes pré/pós-2026 (17,5% fixo para novos investimentos).
+- **~~MP 2026 (IR)~~** *(corrigido em v01.06.02)*: MP 1.303/25 caducou em outubro/2025 sem conversão em lei. Alíquota fixa de 17,5% nunca entrou em vigor; tabela regressiva (22,5%→15%) permanece vigente.
 - **Prompt Vision**: formato brasileiro dd/mm/aaaa explícito, modelo `gemini-3.1-pro-preview`.
 
 ## [v01.02.05] — 2026-03-26
