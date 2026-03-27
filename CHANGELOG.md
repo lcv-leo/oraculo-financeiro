@@ -1,5 +1,13 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.05.00] — 2026-03-26
+### Alterado
+- **E-mail de análise — reescrita completa**: `gerarHtmlRelatorio` agora replica a tela do frontend com inline CSS. Todas as seções: parâmetros (CDI/IPCA/Duration), LCI/LCA (alíquota IR, CDB equivalente, rendimentos, ganho real, benchmark colorido), Tesouro IPCA+ (resumo carteira, MTM com convexidade, lotes individuais com badge VENDER/MANTER, sinal), e análise IA completa (avaliação badge, números-chave, ciladas, recomendação, timing, resumo). Design tiptap.dev com `@media` responsive.
+- **Vencimentos cronológicos**: dropdown de vencimentos de títulos IPCA+ ordenado do vencimento mais próximo ao mais distante via `.sort()`.
+
+### Corrigido
+- **Lint TypeScript**: corrigidos comparadores de tipo — `benchmarkLci.classe` usava `'bom'` e `'razoavel'` (inexistentes); corrigidos para `'muito-bom'` e `'regular'`. `analiseIa.recomendacao` usava `'INVESTIR'` (inexistente); corrigido para `'MANTER'`.
+
 ## [v01.04.00] — 2026-03-26
 ### Adicionado
 - **Formulário de Contato**: botão no rodapé abre modal com formulário (nome, telefone, e-mail, mensagem). Backend `contato.ts` envia via Resend (`oraculo-financeiro@lcv.app.br`). Portado do `mainsite-frontend/ContactModal`.
