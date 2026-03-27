@@ -1,5 +1,11 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.06.02] — 2026-03-27
+### Corrigido
+- **IR Tesouro Direto — remoção de MP 2026 fictícia**: `aliquotaIrRegressiva` aplicava alíquota fixa de 17,5% para compras a partir de 2026. Corrigido para tabela regressiva padrão (22,5% / 20% / 17,5% / 15%) conforme Lei 11.033/2004 e site oficial do Tesouro Direto.
+- **`diasParaMenorIr`**: removia contagem regressiva para IR 15% em compras pós-2026 (retornava 0). Corrigido para sempre calcular 720 − dias decorridos.
+- **`gerarSinalTesouro`**: lógica de decisão considerava 17,5% como IR mínimo. Corrigido para reconhecer apenas 15% como piso.
+
 ## [v01.06.01] — 2026-03-27
 ### Corrigido
 - **Dropdown Vencimentos desordenado**: sort de datas `dd/mm/yyyy` usava `localeCompare` direto (ordenava por dia, não por ano). Corrigido para converter `dd/mm/yyyy` → `yyyymmdd` antes de comparar, garantindo ordem cronológica (mais próximo → mais distante).

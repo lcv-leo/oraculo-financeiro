@@ -12,21 +12,21 @@
 // ─── TRIBUTAÇÃO ──────────────────────────────────────────────────────────────
 
 /**
- * Alíquota de IR para renda fixa tributável.
+ * Alíquota de IR para renda fixa tributável — tabela regressiva (Lei 11.033/2004).
  *
- * - Investimentos a partir de 01/01/2026: alíquota uniforme de 17,5% (MP 2026).
- * - Investimentos até 31/12/2025: tabela regressiva (Lei 11.033/2004).
+ * Faixas:
+ *   Até 180 dias:    22,5%
+ *   181–360 dias:    20,0%
+ *   361–720 dias:    17,5%
+ *   Acima de 720:    15,0%
+ *
+ * Fonte oficial: https://www.tesourodireto.com.br/b/impostos-e-taxas-no-tesouro-direto
  *
  * @param diasCorridos   - Dias desde a aplicação
- * @param dataCompraISO  - Data de compra ISO (ex: '2026-02-26') para determinar regime
+ * @param _dataCompraISO - (reservado para uso futuro)
  */
-export function aliquotaIrRegressiva(diasCorridos: number, dataCompraISO?: string): number {
-  // MP 2026: investimentos a partir de 01/01/2026 têm alíquota uniforme de 17,5%
-  if (dataCompraISO) {
-    const anoCompra = new Date(dataCompraISO).getFullYear()
-    if (anoCompra >= 2026) return 17.5
-  }
-  // Tabela regressiva (Lei 11.033/2004) para investimentos até 31/12/2025
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function aliquotaIrRegressiva(diasCorridos: number, _dataCompraISO?: string): number {
   if (diasCorridos <= 180) return 22.5
   if (diasCorridos <= 360) return 20
   if (diasCorridos <= 720) return 17.5
@@ -66,13 +66,10 @@ export function diasUteisAproximados(diasCorridos: number): number {
 }
 
 /**
- * Dias corridos restantes até o IR mínimo.
- * - Pré-2026: 720 dias → 15% (tabela regressiva)
- * - Pós-2026: alíquota uniforme 17,5% desde o dia 1 (sem regressiva)
+ * Dias corridos restantes até o IR mínimo (15%) — 720 dias após a compra.
+ * Fonte: tabela regressiva Lei 11.033/2004.
  */
 export function diasParaMenorIr(dataCompraISO: string): number {
-  const anoCompra = new Date(dataCompraISO).getFullYear()
-  if (anoCompra >= 2026) return 0 // Alíquota uniforme 17,5% — sem regressiva
   return Math.max(0, 720 - diasDecorridos(dataCompraISO))
 }
 
@@ -404,8 +401,7 @@ export function gerarSinalTesouro(
   }
 
   // Há ganho relevante; verificar eficiência fiscal
-  // Pós-2026: IR é 17,5% fixo (sem regressiva), logo IR já é mínimo desde o dia 1
-  const irMinimo = aliquotaIrMedia <= 15 || aliquotaIrMedia <= 17.5 || diasMediosParaMenorIr === 0
+  const irMinimo = aliquotaIrMedia <= 15 || diasMediosParaMenorIr === 0
 
   if (!irMinimo && diasMediosParaMenorIr > 90) {
     return {
@@ -427,8 +423,8 @@ export function gerarSinalTesouro(
     }
   }
 
-  // IR já no mínimo — avaliar magnitude
-  const irLabel = aliquotaIrMedia <= 15 ? '15%' : '17,5%'
+  // IR já no mínimo (15%) — avaliar magnitude
+  const irLabel = '15%'
   const fatorLiquido = 1 - aliquotaIrMedia / 100
   return {
     sinal: 'VENDER',
