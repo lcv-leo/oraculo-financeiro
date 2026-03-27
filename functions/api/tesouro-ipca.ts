@@ -55,66 +55,9 @@ function getDbOrThrow(env: Env) {
   return db
 }
 
-export const onRequestGet = async ({ env }: Context) => {
-  try {
-    const db = getDbOrThrow(env)
-
-    // Self-healing migrations
-    try { await db.prepare(`ALTER TABLE oraculo_tesouro_ipca_lotes ADD COLUMN vencimento TEXT DEFAULT ''`).run() } catch { /* exists */ }
-    try { await db.prepare(`ALTER TABLE oraculo_tesouro_ipca_lotes ADD COLUMN email TEXT DEFAULT ''`).run() } catch { /* exists */ }
-
-    const { results } = await db.prepare(
-      `SELECT
-        id,
-        created_at AS criadoEm,
-        data_compra AS dataCompra,
-        valor_investido AS valorInvestido,
-        taxa_contratada AS taxaContratada,
-        COALESCE(vencimento, '') AS vencimento,
-        taxa_atual AS taxaAtual,
-        dias_para_menor_ir AS diasParaMenorIr,
-        recomendacao,
-        observacao
-       FROM oraculo_tesouro_ipca_lotes
-       ORDER BY datetime(created_at) DESC
-       LIMIT 200`
-    ).all()
-
-    const data = ((results ?? []) as Array<{
-      id: string
-      criadoEm: string
-      dataCompra: string
-      valorInvestido: number
-      taxaContratada: number
-      vencimento: string
-      taxaAtual: number
-      diasParaMenorIr: number
-      recomendacao: Recomendacao
-      observacao: string
-    }>).map((item) => ({
-      id: item.id,
-      criadoEm: item.criadoEm,
-      dataCompra: item.dataCompra,
-      valorInvestido: item.valorInvestido,
-      taxaContratada: item.taxaContratada,
-      vencimento: item.vencimento ?? '',
-      taxaAtual: item.taxaAtual,
-      diasParaMenorIr: item.diasParaMenorIr,
-      sinal: item.recomendacao,
-      analise: item.observacao
-    })) as LoteTesouro[]
-
-    return jsonResponse({ ok: true, data })
-  } catch (error) {
-    return jsonResponse(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Falha ao buscar lotes do Tesouro IPCA+.'
-      },
-      500
-    )
-  }
-}
+// GET handler REMOVIDO por segurança.
+// Dados de usuário NÃO podem ser servidos publicamente.
+// Acesso somente via fluxo autenticado (oraculo-auth.ts → retrieve).
 
 export const onRequestPost = async ({ env, request }: Context) => {
   try {

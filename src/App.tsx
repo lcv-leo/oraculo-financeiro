@@ -68,13 +68,6 @@ type NotificationItem = {
   message: string
 }
 
-type ApiListResponse<T> = {
-  ok: boolean
-  data: T[]
-  total?: number
-  limit?: number
-  offset?: number
-}
 
 type ApiCreateResponse<T> = {
   ok: boolean
@@ -188,7 +181,7 @@ function App() {
   const [lciRegistros, setLciRegistros] = useState<RegistroLciLca[]>([])
   const [tesouroRegistros, setTesouroRegistros] = useState<RegistroTesouroIpca[]>([])
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('checking')
+  const [connectionStatus] = useState<ConnectionStatus>('online')
   const [analisandoIa, setAnalisandoIa] = useState(false)
   const [analiseIa, setAnaliseIa] = useState<AnaliseIA | null>(null)
   
@@ -411,39 +404,9 @@ function App() {
     }, 4200)
   }
 
-  const carregarRegistros = async () => {
-    setLoading(true)
-
-    try {
-      const [lciResponse, tesouroResponse] = await Promise.all([
-        fetch('/api/registros-lci-cdb?limit=200'),
-        fetch('/api/tesouro-ipca')
-      ])
-
-      if (!lciResponse.ok) {
-        throw new Error(`Falha ao carregar LCI/CDB: ${await parseApiError(lciResponse)}`)
-      }
-
-      if (!tesouroResponse.ok) {
-        throw new Error(`Falha ao carregar tesouro: ${await parseApiError(tesouroResponse)}`)
-      }
-
-      const lciPayload = await lciResponse.json() as ApiListResponse<RegistroLciLca>
-      const tesouroPayload = await tesouroResponse.json() as ApiListResponse<RegistroTesouroIpca>
-
-      setLciRegistros(lciPayload.data)
-      setTesouroRegistros(tesouroPayload.data)
-      setConnectionStatus('online')
-    } catch {
-      setConnectionStatus('offline')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    void carregarRegistros()
-  }, [])
+  // NOTA: NÃO carregar registros automaticamente no mount.
+  // Dados só são populados via fluxo autenticado (Resgatar Análise → email/token).
+  // Isso garante que nenhum dado é exibido no frontend público sem autenticação.
 
   useEffect(() => { setAnaliseIa(null) }, [activeTab])
 
@@ -1221,7 +1184,6 @@ function App() {
 
           <div className="actions">
             <button onClick={handleSalvarLciLca} type="button">Salvar DB</button>
-            <button onClick={() => void carregarRegistros()} type="button" className="ghost">Recarregar do D1</button>
             <button onClick={() => void handleAnalisarIa()} type="button" className="btn-ia" disabled={analisandoIa}>
               {analisandoIa ? 'Analisando...' : '✦ Analisar com IA'}
             </button>
