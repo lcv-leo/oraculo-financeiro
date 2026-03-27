@@ -5,6 +5,16 @@
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
+// Cloudflare Workers global types (evita dependência de @cloudflare/workers-types)
+interface ScheduledEvent {
+  scheduledTime: number
+  cron: string
+}
+interface ExecutionContext {
+  waitUntil(promise: Promise<unknown>): void
+  passThroughOnException(): void
+}
+
 interface Env {
   BIGDATA_DB: any // eslint-disable-line @typescript-eslint/no-explicit-any -- Cloudflare D1 binding
 }
@@ -96,8 +106,9 @@ function parseCSV(csvText: string): { titulos: TituloTD[]; totalLines: number } 
 
 // ─── CRON HANDLER ─────────────────────────────────────────────────────────────
 
-async function processarCSV(db: Env['BIGDATA_DB']): Promise<string> {
+async function processarCSV(db: Env['BIGDATA_DB'], origem: string): Promise<string> {
   const t0 = Date.now()
+  console.log(`[cron-taxa-ipca] ▶ Início do processamento (origem: ${origem})`)
   const csvUrl = 'https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/precotaxatesourodireto.csv'
 
   console.log('[cron-taxa-ipca] Iniciando download do CSV do Tesouro Transparente...')
@@ -112,8 +123,10 @@ async function processarCSV(db: Env['BIGDATA_DB']): Promise<string> {
   const csvBytes = csvText.length
   console.log(`[cron-taxa-ipca] CSV baixado: ${(csvBytes / 1024 / 1024).toFixed(2)} MB`)
 
+  const tParse = Date.now()
   const { titulos, totalLines } = parseCSV(csvText)
-  console.log(`[cron-taxa-ipca] CSV parseado: ${totalLines} linhas, ${titulos.length} títulos IPCA+ encontrados`)
+  const parseDuration = Date.now() - tParse
+  console.log(`[cron-taxa-ipca] CSV parseado em ${parseDuration}ms: ${totalLines} linhas totais, ${titulos.length} títulos IPCA+ encontrados`)
 
   if (titulos.length === 0) {
     console.error(`[cron-taxa-ipca] Nenhum título IPCA+ encontrado. Total de linhas no CSV: ${totalLines}`)
@@ -131,8 +144,12 @@ async function processarCSV(db: Env['BIGDATA_DB']): Promise<string> {
   const agora = new Date().toISOString()
 
   console.log(`[cron-taxa-ipca] Dados processados: data_ref=${dataRef}, taxa_media=${taxaMedia}%, titulos=${titulos.length}`)
+  // Log detalhado dos títulos encontrados
+  titulos.forEach((t) => console.log(`[cron-taxa-ipca]   → ${t.tipo} venc ${t.vencimento}: compra ${t.taxaCompra}%, venda ${t.taxaVenda}%, PU ${t.pu}`))
 
   // Upsert no cache D1
+  console.log(`[cron-taxa-ipca] Gravando no D1 (oraculo_taxa_ipca_cache)...`)
+  const tDb = Date.now()
   await db.prepare(
     `INSERT INTO oraculo_taxa_ipca_cache (id, data_referencia, taxa_indicativa, vencimentos_json, atualizado_em)
      VALUES (?, ?, ?, ?, ?)
@@ -141,36 +158,49 @@ async function processarCSV(db: Env['BIGDATA_DB']): Promise<string> {
     'latest', dataRef, taxaMedia, vencimentosJson, agora,
     dataRef, taxaMedia, vencimentosJson, agora
   ).run()
+  const dbDuration = Date.now() - tDb
 
   const elapsed = Date.now() - t0
-  const resumo = `Cache atualizado: ${titulos.length} títulos IPCA+, taxa média ${taxaMedia}%, ref ${dataRef} (${elapsed}ms)`
-  console.log(`[cron-taxa-ipca] Upsert D1 concluído. ${resumo}`)
+  const resumo = `Cache atualizado: ${titulos.length} títulos IPCA+, taxa média ${taxaMedia}%, ref ${dataRef} (total ${elapsed}ms, parse ${parseDuration}ms, D1 ${dbDuration}ms)`
+  console.log(`[cron-taxa-ipca] ✅ ${resumo}`)
   return resumo
 }
 
 // ─── WORKER EXPORT ────────────────────────────────────────────────────────────
 
 export default {
-  // Cron Trigger — executa diariamente às 05:00 UTC (02:00 BRT)
-  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    console.log(`[cron-taxa-ipca] ⏰ Cron trigger disparado: ${new Date().toISOString()}`)
+  // Cron Trigger — executa no schedule configurado via Cloudflare
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    console.log(`[cron-taxa-ipca] ⏰ Cron trigger disparado`)
+    console.log(`[cron-taxa-ipca]   scheduledTime: ${new Date(event.scheduledTime).toISOString()}`)
+    console.log(`[cron-taxa-ipca]   cron: ${event.cron}`)
+    console.log(`[cron-taxa-ipca]   agora (UTC): ${new Date().toISOString()}`)
     ctx.waitUntil(
-      processarCSV(env.BIGDATA_DB)
-        .then((msg) => console.log(`[cron-taxa-ipca] ✅ ${msg}`))
-        .catch((err) => console.error(`[cron-taxa-ipca] ❌ ${err instanceof Error ? err.message : err}`))
+      processarCSV(env.BIGDATA_DB, `cron(${event.cron})`)
+        .then((msg) => console.log(`[cron-taxa-ipca] 🏁 Cron finalizado com sucesso: ${msg}`))
+        .catch((err) => {
+          console.error(`[cron-taxa-ipca] ❌ Cron falhou: ${err instanceof Error ? err.message : err}`)
+          if (err instanceof Error && err.stack) console.error(`[cron-taxa-ipca] Stack: ${err.stack}`)
+        })
     )
   },
 
   // Fallback HTTP — permite testar manualmente via GET
-  async fetch(_request: Request, env: Env): Promise<Response> {
-    console.log(`[cron-taxa-ipca] 🔧 Execução manual via HTTP: ${new Date().toISOString()}`)
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url)
+    console.log(`[cron-taxa-ipca] 🔧 Execução manual via HTTP: ${request.method} ${url.pathname}`)
+    console.log(`[cron-taxa-ipca]   agora (UTC): ${new Date().toISOString()}`)
     try {
-      const msg = await processarCSV(env.BIGDATA_DB)
+      const msg = await processarCSV(env.BIGDATA_DB, 'http-manual')
+      console.log(`[cron-taxa-ipca] 🏁 Execução manual concluída: ${msg}`)
       return new Response(JSON.stringify({ ok: true, message: msg }), {
         headers: { 'Content-Type': 'application/json' },
       })
     } catch (error) {
-      return new Response(JSON.stringify({ ok: false, error: error instanceof Error ? error.message : 'Erro interno' }), {
+      const errorMsg = error instanceof Error ? error.message : 'Erro interno'
+      console.error(`[cron-taxa-ipca] ❌ Execução manual falhou: ${errorMsg}`)
+      if (error instanceof Error && error.stack) console.error(`[cron-taxa-ipca] Stack: ${error.stack}`)
+      return new Response(JSON.stringify({ ok: false, error: errorMsg }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
       })
