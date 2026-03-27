@@ -1,5 +1,17 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.04.00] — 2026-03-26
+### Adicionado
+- **Formulário de Contato**: botão no rodapé abre modal com formulário (nome, telefone, e-mail, mensagem). Backend `contato.ts` envia via Resend (`oraculo-financeiro@lcv.app.br`). Portado do `mainsite-frontend/ContactModal`.
+- **E-mail de Análise**: botão no rodapé abre modal (portado do `astrologo-frontend/EmailModal`). Gera HTML completo com parâmetros, lotes IPCA+, registros LCI/LCA e análise IA. Backend `enviar-email.ts` via Resend.
+- **Suporte a PDF no Vision**: drag/drop e file input aceitam `.pdf` além de imagens. Vision worker envia ao Gemini com `application/pdf`, system instruction atualizada.
+- **Scroll FABs**: botões flutuantes de Voltar ao topo / Ir ao final (paridade admin-app). Threshold 200px, design tiptap.dev.
+
+### Corrigido
+- **Notificações ocultas**: `z-index` de `.notifications` elevado para 101 (acima de `.auth-overlay` z-index: 100).
+- **Botão Resgatar Análise**: adicionada borda para paridade visual com demais botões.
+- **Lint**: `let` → `const` em `formatPhone`, `analiseIa.texto` → `analiseIa.analise`.
+
 ## [v01.03.00] — 2026-03-26
 ### Adicionado
 - **Tesouro Transparente**: Worker `/api/taxa-ipca-atual` reescrito para usar CSV público gratuito do Tesouro Transparente (dados abertos, ~13 MB) com cache D1 (`oraculo_taxa_ipca_cache`). ANBIMA (paga) removida.

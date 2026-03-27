@@ -39,11 +39,11 @@ export const onRequestPost = async ({ request, env }: Context) => {
   }
 
   if (!payload.imageBase64 || !payload.mimeType) {
-    return jsonResponse({ ok: false, error: 'Imagem base64 e mimeType são obrigatórios.' }, 400)
+    return jsonResponse({ ok: false, error: 'Arquivo base64 e mimeType são obrigatórios.' }, 400)
   }
 
   const systemInstruction = `Você é um consultor financeiro especialista em marcação a mercado do Tesouro Direto brasileiro.
-Extraia TODOS os lotes de investimento do extrato do Tesouro IPCA+ enviado na imagem.
+Extraia TODOS os lotes de investimento do extrato do Tesouro IPCA+ enviado na imagem ou PDF.
 
 ATENÇÃO: as datas no extrato estão em formato BRASILEIRO: dd/mm/aaaa (dia/mês/ano).
 Exemplo: "26/02/2026" significa 26 de fevereiro de 2026 e deve ser convertido para "2026-02-26".
@@ -87,7 +87,7 @@ Regras de Extração e Conversão:
             mimeType: payload.mimeType,
           },
         },
-        { text: 'Extraia os dados estruturados desta imagem.' },
+        { text: 'Extraia os dados estruturados deste arquivo (imagem ou PDF).' },
       ],
     }],
     generationConfig: {
