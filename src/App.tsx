@@ -1212,7 +1212,7 @@ function App() {
               <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: processandoImg ? '#664d03' : '#3c4043' }}>
                 {processandoImg
                   ? 'Extraindo dados do extrato. Isso pode levar alguns segundos...'
-                  : 'Anexe um print do extrato. O Gemini identificará os dados sozinho.'}
+                  : 'Anexe um print ou PDF do extrato. O Gemini identificará os dados sozinho.'}
               </p>
             </div>
             <label className="btn-ia" style={{ cursor: processandoImg ? 'not-allowed' : 'pointer', margin: 0, padding: '0.5rem 1.25rem', opacity: processandoImg ? 0.6 : 1, pointerEvents: processandoImg ? 'none' : 'auto' }}>
