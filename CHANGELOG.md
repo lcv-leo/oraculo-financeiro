@@ -1,5 +1,13 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.06.01] — 2026-03-27
+### Corrigido
+- **Dropdown Vencimentos desordenado**: sort de datas `dd/mm/yyyy` usava `localeCompare` direto (ordenava por dia, não por ano). Corrigido para converter `dd/mm/yyyy` → `yyyymmdd` antes de comparar, garantindo ordem cronológica (mais próximo → mais distante).
+- **IDE Type Errors**: declarados `ScheduledEvent` e `ExecutionContext` inline no worker (evita dependência de `@cloudflare/workers-types`).
+
+### Melhorado
+- **Cron Worker Observability completa**: logging granular em cada etapa — trigger metadata (`scheduledTime`, expressão cron, UTC), origem do disparo (`cron(...)` vs `http-manual`), listagem individual de cada título IPCA+ encontrado, timing de parse e D1 separados, e stack trace em erros.
+
 ## [v01.06.00] — 2026-03-27
 ### Corrigido
 - **Cron Worker CSV Parser**: reescrito `parseCSV` para mapear corretamente as 7 colunas do CSV do Tesouro Transparente (antes mapeava 8 colunas incorretamente, causando dados corrompidos e falha na identificação de títulos IPCA+).
