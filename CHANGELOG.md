@@ -11,6 +11,8 @@
 - **Notificações ocultas**: `z-index` de `.notifications` elevado para 101 (acima de `.auth-overlay` z-index: 100).
 - **Botão Resgatar Análise**: adicionada borda para paridade visual com demais botões.
 - **Lint**: `let` → `const` em `formatPhone`, `analiseIa.texto` → `analiseIa.analise`.
+- **500 em `/api/tesouro-ipca`**: self-healing migration — `ALTER TABLE ADD COLUMN vencimento` executa automaticamente na primeira request se a coluna não existir.
+- **Labels PDF**: botão "Upload Imagem" → "Upload Imagem/PDF"; hint do drag/drop atualizado para "Anexe um print ou PDF do extrato".
 
 ## [v01.03.00] — 2026-03-26
 ### Adicionado
