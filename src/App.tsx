@@ -1461,14 +1461,16 @@ function App() {
             </label>
           </div>
 
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+            <button onClick={() => void handleAnalisarIa()} type="button" className="btn-ia" disabled={analisandoIa}>
+              {analisandoIa ? 'Analisando...' : '✦ Análise Inteligente'}
+            </button>
+          </div>
           <div className="actions-grid">
             <button onClick={handleAdicionarLote} type="button" className="btn-add">+ Adicionar lote</button>
             <button onClick={() => setAuthMode('save')} type="button">Salvar Análise</button>
             <button onClick={() => setAuthMode('retrieve')} type="button" style={{ border: '1px solid rgba(0,0,0,0.12)' }}>Resgatar Análise</button>
             <button onClick={() => setAuthMode('delete')} type="button" style={{ border: '1px solid rgba(0,0,0,0.12)', color: '#c62828' }}>🗑️ Excluir Meus Dados</button>
-            <button onClick={() => void handleAnalisarIa()} type="button" className="btn-ia" disabled={analisandoIa}>
-              {analisandoIa ? 'Analisando...' : '✦ Análise Inteligente'}
-            </button>
           </div>
 
           {analiseIa && (
