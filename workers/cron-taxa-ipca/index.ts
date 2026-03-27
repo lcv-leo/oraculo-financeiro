@@ -23,66 +23,100 @@ interface TituloTD {
 /**
  * Parseia o CSV do Tesouro Transparente e extrai os registros mais recentes de Tesouro IPCA+.
  *
- * Colunas (separador ;):
- * Tipo Titulo;Titulo Publico;Data Vencimento;Data Base;Taxa Compra Manha;Taxa Venda Manha;PU Compra Manha;PU Venda Manha;PU Base Manha
+ * CSV real (7 colunas, separador ;):
+ * cols[0] = Tipo Titulo       (ex: "Tesouro IPCA+")
+ * cols[1] = Data Vencimento    (ex: "15/08/2040")
+ * cols[2] = Data Base          (ex: "25/03/2026")
+ * cols[3] = Taxa Compra Manha  (ex: "7,16")
+ * cols[4] = Taxa Venda Manha   (ex: "7,28")
+ * cols[5] = PU Compra Manha    (ex: "1724,41")
+ * cols[6] = PU Venda Manha     (ex: "1696,38")
+ *
+ * ATENÇÃO: dados NÃO são cronológicos — precisa scan completo.
  */
-function parseCSV(csvText: string): TituloTD[] {
-  const lines = csvText.trim().split('\n')
-  if (lines.length < 2) return []
+function parseCSV(csvText: string): { titulos: TituloTD[]; totalLines: number } {
+  const clean = csvText.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const lines = clean.trim().split('\n')
+  if (lines.length < 2) return { titulos: [], totalLines: lines.length }
 
-  const results: TituloTD[] = []
-  let latestDate = ''
+  // Converter data BR (dd/mm/yyyy) para comparável (yyyymmdd)
+  function dateKey(dataBR: string): string {
+    const [d, m, y] = dataBR.split('/')
+    return `${y}${m}${d}`
+  }
 
-  // Percorre de trás para frente até encontrar todas as linhas da data mais recente
-  for (let i = lines.length - 1; i >= 1; i--) {
+  // Passo 1: scan completo para encontrar a data base mais recente
+  let latestDateKey = ''
+  let latestDateBR = ''
+  for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(';')
-    if (cols.length < 6) continue
-
-    const tipoTitulo = cols[0].trim()
-    const tituloPublico = cols[1]?.trim() ?? ''
-    const dataVencimento = cols[2]?.trim() ?? ''
-    const dataBase = cols[3]?.trim() ?? ''
-    const taxaCompra = parseFloat((cols[4] ?? '0').replace(',', '.'))
-    const taxaVenda = parseFloat((cols[5] ?? '0').replace(',', '.'))
-    const puCompra = parseFloat((cols[6] ?? '0').replace(',', '.'))
-
-    if (!dataBase) continue
-    if (!latestDate) latestDate = dataBase
-    if (dataBase !== latestDate) break
-
-    const isIpca = tipoTitulo === 'Tesouro IPCA+' ||
-      tipoTitulo === 'Tesouro IPCA+ com Juros Semestrais' ||
-      tituloPublico.includes('IPCA+')
-
-    if (isIpca) {
-      results.push({
-        tipo: tipoTitulo,
-        vencimento: dataVencimento,
-        dataBase,
-        taxaCompra: isNaN(taxaCompra) ? 0 : taxaCompra,
-        taxaVenda: isNaN(taxaVenda) ? 0 : taxaVenda,
-        pu: isNaN(puCompra) ? 0 : puCompra,
-      })
+    if (cols.length < 5) continue
+    const dataBase = cols[2]?.trim() ?? ''
+    if (!dataBase || !dataBase.includes('/')) continue
+    const dk = dateKey(dataBase)
+    if (dk > latestDateKey) {
+      latestDateKey = dk
+      latestDateBR = dataBase
     }
   }
 
-  return results
+  if (!latestDateBR) return { titulos: [], totalLines: lines.length }
+
+  // Passo 2: coletar somente IPCA+ na data mais recente
+  const results: TituloTD[] = []
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(';')
+    if (cols.length < 5) continue
+
+    const tipoTitulo = cols[0].trim()
+    const dataVencimento = cols[1]?.trim() ?? ''
+    const dataBase = cols[2]?.trim() ?? ''
+    const taxaCompra = parseFloat((cols[3] ?? '0').replace(',', '.'))
+    const taxaVenda = parseFloat((cols[4] ?? '0').replace(',', '.'))
+    const puCompra = parseFloat((cols[5] ?? '0').replace(',', '.'))
+
+    if (dataBase !== latestDateBR) continue
+
+    const tipoLower = tipoTitulo.toLowerCase()
+    const isIpca = tipoLower.includes('ipca') || tipoLower.includes('ntn-b')
+    if (!isIpca) continue
+
+    results.push({
+      tipo: tipoTitulo,
+      vencimento: dataVencimento,
+      dataBase,
+      taxaCompra: isNaN(taxaCompra) ? 0 : taxaCompra,
+      taxaVenda: isNaN(taxaVenda) ? 0 : taxaVenda,
+      pu: isNaN(puCompra) ? 0 : puCompra,
+    })
+  }
+
+  return { titulos: results, totalLines: lines.length }
 }
 
 // ─── CRON HANDLER ─────────────────────────────────────────────────────────────
 
 async function processarCSV(db: Env['BIGDATA_DB']): Promise<string> {
+  const t0 = Date.now()
   const csvUrl = 'https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/precotaxatesourodireto.csv'
+
+  console.log('[cron-taxa-ipca] Iniciando download do CSV do Tesouro Transparente...')
 
   const csvRes = await fetch(csvUrl)
   if (!csvRes.ok) {
+    console.error(`[cron-taxa-ipca] Falha no download do CSV: HTTP ${csvRes.status} ${csvRes.statusText}`)
     throw new Error(`Falha ao baixar CSV: HTTP ${csvRes.status}`)
   }
 
   const csvText = await csvRes.text()
-  const titulos = parseCSV(csvText)
+  const csvBytes = csvText.length
+  console.log(`[cron-taxa-ipca] CSV baixado: ${(csvBytes / 1024 / 1024).toFixed(2)} MB`)
+
+  const { titulos, totalLines } = parseCSV(csvText)
+  console.log(`[cron-taxa-ipca] CSV parseado: ${totalLines} linhas, ${titulos.length} títulos IPCA+ encontrados`)
 
   if (titulos.length === 0) {
+    console.error(`[cron-taxa-ipca] Nenhum título IPCA+ encontrado. Total de linhas no CSV: ${totalLines}`)
     throw new Error('Nenhum título IPCA+ encontrado no CSV')
   }
 
@@ -96,6 +130,8 @@ async function processarCSV(db: Env['BIGDATA_DB']): Promise<string> {
   const vencimentosJson = JSON.stringify(titulos)
   const agora = new Date().toISOString()
 
+  console.log(`[cron-taxa-ipca] Dados processados: data_ref=${dataRef}, taxa_media=${taxaMedia}%, titulos=${titulos.length}`)
+
   // Upsert no cache D1
   await db.prepare(
     `INSERT INTO oraculo_taxa_ipca_cache (id, data_referencia, taxa_indicativa, vencimentos_json, atualizado_em)
@@ -106,7 +142,10 @@ async function processarCSV(db: Env['BIGDATA_DB']): Promise<string> {
     dataRef, taxaMedia, vencimentosJson, agora
   ).run()
 
-  return `Cache atualizado: ${titulos.length} títulos IPCA+, taxa média ${taxaMedia}%, ref ${dataRef}`
+  const elapsed = Date.now() - t0
+  const resumo = `Cache atualizado: ${titulos.length} títulos IPCA+, taxa média ${taxaMedia}%, ref ${dataRef} (${elapsed}ms)`
+  console.log(`[cron-taxa-ipca] Upsert D1 concluído. ${resumo}`)
+  return resumo
 }
 
 // ─── WORKER EXPORT ────────────────────────────────────────────────────────────
@@ -114,6 +153,7 @@ async function processarCSV(db: Env['BIGDATA_DB']): Promise<string> {
 export default {
   // Cron Trigger — executa diariamente às 05:00 UTC (02:00 BRT)
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    console.log(`[cron-taxa-ipca] ⏰ Cron trigger disparado: ${new Date().toISOString()}`)
     ctx.waitUntil(
       processarCSV(env.BIGDATA_DB)
         .then((msg) => console.log(`[cron-taxa-ipca] ✅ ${msg}`))
@@ -123,6 +163,7 @@ export default {
 
   // Fallback HTTP — permite testar manualmente via GET
   async fetch(_request: Request, env: Env): Promise<Response> {
+    console.log(`[cron-taxa-ipca] 🔧 Execução manual via HTTP: ${new Date().toISOString()}`)
     try {
       const msg = await processarCSV(env.BIGDATA_DB)
       return new Response(JSON.stringify({ ok: true, message: msg }), {
