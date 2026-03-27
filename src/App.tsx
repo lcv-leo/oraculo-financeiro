@@ -252,10 +252,11 @@ function App() {
           setTaxaAtualTesouro(payload.taxaMediaIndicativa)
           setTaxaRef(payload.dataReferencia ?? null)
           if (payload.titulos?.length) {
-            setTitulosIpca(payload.titulos)
-            // Selecionar primeiro vencimento disponível no mount
-            if (payload.titulos.length > 0) {
-              setNovoLoteVencimento(payload.titulos[0].vencimento)
+            // Ordenar por vencimento cronológico (mais próximo → mais distante)
+            const sorted = [...payload.titulos].sort((a, b) => a.vencimento.localeCompare(b.vencimento))
+            setTitulosIpca(sorted)
+            if (sorted.length > 0) {
+              setNovoLoteVencimento(sorted[0].vencimento)
             }
           }
           pushNotification('success', 'Taxas atualizadas',
@@ -647,79 +648,177 @@ function App() {
   }
 
   const gerarHtmlRelatorio = (): string => {
-    const font = "font-family: 'Inter', system-ui, -apple-system, sans-serif;"
-    const shadow = "box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
+    const font = "font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"
+    const sh = "box-shadow: 0 1px 3px rgba(0,0,0,0.08);"
+    const card = `background: #fff; border-radius: 20px; padding: 24px; border: 1px solid rgba(0,0,0,0.05); ${sh} margin-bottom: 20px;`
+    const label = "font-size: 12px; color: #666; margin: 0 0 4px; text-transform: uppercase; letter-spacing: 0.5px;"
+    const val = "font-size: 18px; font-weight: 700; color: #0d0d0d; margin: 0;"
+    const block = "background: #f9f9f8; padding: 14px 16px; border-radius: 12px;"
+    const pos = "color: #16a34a;"
+    const neg = "color: #dc2626;"
+    const pill = (bg: string, fg: string) => `display: inline-block; padding: 4px 12px; border-radius: 100px; font-size: 11px; font-weight: 700; background: ${bg}; color: ${fg};`
 
-    const lotesHtml = tesouroRegistros.map(r => `
-      <tr>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0;">${r.dataCompra.split('-').reverse().join('/')}</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0; font-weight: 700;">R$ ${r.valorInvestido.toLocaleString('pt-BR')}</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0;">${r.taxaContratada.toFixed(2)}%</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0;">
-          <span style="display: inline-block; padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 700; background: ${r.sinal === 'vender' ? '#fef2f2' : '#f0fdf4'}; color: ${r.sinal === 'vender' ? '#dc2626' : '#16a34a'};">${r.sinal.toUpperCase()}</span>
-        </td>
-      </tr>
-    `).join('')
+    // ── LCI/LCA section ──
+    const lciSection = lciRegistros.length > 0 ? `
+      <div style="${card}">
+        <h3 style="font-size: 18px; font-weight: 800; color: #0d0d0d; margin: 0 0 20px; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0;">LCI/LCA ≈ CDB — Análise de Equivalência</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px;">
+          <div style="${block}"><p style="${label}">Prazo</p><p style="${val}">${prazoDias} dias</p></div>
+          <div style="${block}"><p style="${label}">Taxa LCI/LCA</p><p style="${val}">${taxaLciLca.toFixed(2)}% CDI</p></div>
+          <div style="${block}"><p style="${label}">Aporte</p><p style="${val}">R$ ${aporte.toLocaleString('pt-BR')}</p></div>
+          <div style="${block}"><p style="${label}">Alíquota IR (CDB)</p><p style="${val}">${aliquotaIr.toFixed(1)}%</p></div>
+          <div style="${block} background: #eef6ff;"><p style="${label}">CDB bruto equivalente</p><p style="${val} color: #1a73e8;">${cdbEquivalente.toFixed(2)}% CDI</p></div>
+        </div>
+        <h4 style="font-size: 14px; color: #666; margin: 16px 0 12px;">Rendimento estimado (CDI a ${cdiAtual}% a.a.)</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px;">
+          <div style="${block}"><p style="${label}">LCI/LCA líquido (isento)</p><p style="${val} ${pos}">R$ ${rendLciLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
+          <div style="${block}"><p style="${label}">CDB equiv. líquido (após IR)</p><p style="${val} ${pos}">R$ ${rendCdbLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
+          <div style="${block}"><p style="${label}">Taxa efetiva a.a.</p><p style="${val}">${rendLciPctAa.toFixed(2)}% a.a.</p></div>
+          <div style="${block}"><p style="${label}">Ganho real (acima IPCA)</p><p style="${val} ${ganhoRealLci >= 0 ? pos : neg}">${ganhoRealLci >= 0 ? '+' : ''}${ganhoRealLci.toFixed(2)}% a.a.</p></div>
+        </div>
+        <div style="padding: 14px 20px; border-radius: 12px; text-align: center; background: ${benchmarkLci.classe === 'excelente' ? '#f0fdf4' : benchmarkLci.classe === 'muito-bom' ? '#eef6ff' : benchmarkLci.classe === 'regular' ? '#fffbeb' : '#fef2f2'}; border: 1px solid ${benchmarkLci.classe === 'excelente' ? '#bbf7d0' : benchmarkLci.classe === 'muito-bom' ? '#bfdbfe' : benchmarkLci.classe === 'regular' ? '#fde68a' : '#fecaca'};">
+          <strong style="font-size: 14px;">${benchmarkLci.label}</strong><br/>
+          <span style="font-size: 13px; color: #555;">${benchmarkLci.descricao}</span>
+        </div>
+        ${lciRegistros.length > 0 ? `
+        <h4 style="font-size: 14px; color: #666; margin: 20px 0 12px;">Registros LCI/LCA salvos (${lciRegistros.length})</h4>
+        ${lciRegistros.map(r => `
+          <div style="padding: 12px 16px; background: #f9f9f8; border-radius: 12px; margin-bottom: 8px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+            <span>R$ <strong>${r.aporte.toLocaleString('pt-BR')}</strong></span>
+            <span>${r.prazoDias}d</span>
+            <span>${r.taxaLciLca.toFixed(2)}% CDI</span>
+            <span style="${pill('#eef6ff', '#1a73e8')}">≈ CDB ${r.cdbEquivalente.toFixed(2)}%</span>
+          </div>
+        `).join('')}` : ''}
+      </div>` : ''
 
-    const lciHtml = lciRegistros.map(r => `
-      <tr>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0; font-weight: 700;">R$ ${r.aporte.toLocaleString('pt-BR')}</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0;">${r.prazoDias} dias</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0;">${r.taxaLciLca.toFixed(2)}% CDI</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0;">≈ CDB ${r.cdbEquivalente.toFixed(2)}%</td>
-      </tr>
-    `).join('')
+    // ── Tesouro IPCA+ section ──
+    const tesouroSection = tesouroRegistros.length > 0 ? `
+      <div style="${card}">
+        <h3 style="font-size: 18px; font-weight: 800; color: #0d0d0d; margin: 0 0 4px;">Tesouro IPCA+ — Resumo da Carteira</h3>
+        <p style="font-size: 12px; color: #888; margin: 0 0 20px;">Duration Modificada + Convexidade (Fabozzi/CFA Institute)</p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px;">
+          <div style="${block}"><p style="${label}">Total investido</p><p style="${val}">R$ ${totalInvestidoTesouro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
+          <div style="${block}"><p style="${label}">Taxa média contratada</p><p style="${val}">${taxaMediaTesouro.toFixed(2)}% a.a.</p></div>
+          <div style="${block}"><p style="${label}">Taxa de mercado atual</p><p style="${val} ${taxaAtualTesouro < taxaMediaTesouro ? pos : taxaAtualTesouro > taxaMediaTesouro ? neg : ''}">${taxaAtualTesouro.toFixed(2)}% a.a.</p></div>
+          <div style="${block}"><p style="${label}">Duration Mod. média</p><p style="${val}">${durationModMediaTesouro.toFixed(2)} anos</p></div>
+          <div style="${block}"><p style="${label}">Data média de compra</p><p style="${val}">${dataMediaTesouro || '—'}</p></div>
+          <div style="${block}"><p style="${label}">IR médio ponderado</p><p style="${val}">${aliquotaIrMediaTesouro.toFixed(1)}%</p></div>
+        </div>
+        <div style="border-top: 1px solid #f0f0f0; padding-top: 16px; margin-top: 8px;">
+          <h4 style="font-size: 14px; color: #666; margin: 0 0 12px;">Análise de Ganho / Perda (MTM)</h4>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px;">
+            <div style="${block} ${mtmTotalTesouro > 0 ? 'background: #f0fdf4; border: 1px solid #bbf7d0;' : mtmTotalTesouro < 0 ? 'background: #fef2f2; border: 1px solid #fecaca;' : ''}">
+              <p style="${label}">Ganho/Perda MTM estimado</p>
+              <p style="${val} ${mtmTotalTesouro >= 0 ? pos : neg}">${mtmTotalTesouro >= 0 ? '+' : ''}R$ ${mtmTotalTesouro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+            ${mtmTotalTesouro > 0 ? `
+            <div style="${block}"><p style="${label}">Líquido vender hoje (IR ${aliquotaIrMediaTesouro.toFixed(1)}%)</p><p style="${val} ${pos}">+R$ ${analisesLotes.reduce((s, a) => s + a.ganhoLiquidoHoje, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
+            <div style="${block}"><p style="${label}">Líquido aguardando IR 15%</p><p style="${val} ${pos}">+R$ ${analisesLotes.reduce((s, a) => s + a.ganhoLiquidoIrMin, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
+            ${economiaIrTotal > 0.01 ? `<div style="${block}"><p style="${label}">Economia fiscal esperando IR 15%</p><p style="${val} ${pos}">+R$ ${economiaIrTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>` : ''}
+            <div style="${block}"><p style="${label}">Dias médios p/ IR 15%</p><p style="${val}">${diasMediosParaMenorIr === 0 ? 'IR já no mínimo ✓' : `${diasMediosParaMenorIr} dias`}</p></div>
+            ` : ''}
+          </div>
+        </div>
+        <div style="text-align: center; padding: 16px 20px; border-radius: 14px; margin-bottom: 16px; background: ${decisaoTesouro.sinal === 'VENDER' ? '#fef2f2' : '#f0fdf4'}; border: 1px solid ${decisaoTesouro.sinal === 'VENDER' ? '#fecaca' : '#bbf7d0'};">
+          <span style="${pill(decisaoTesouro.sinal === 'VENDER' ? '#dc2626' : '#16a34a', '#fff')} font-size: 14px; margin-bottom: 6px;">${decisaoTesouro.sinal}</span>
+          <span style="display: inline-block; margin-left: 8px; font-size: 12px; font-weight: 600; color: #666;">${decisaoTesouro.forca}</span>
+          <p style="font-size: 14px; color: #333; margin: 8px 0 4px;">${decisaoTesouro.texto}</p>
+          <p style="font-size: 12px; color: #888; margin: 0;">${decisaoTesouro.subTexto}</p>
+        </div>
+        <h4 style="font-size: 14px; color: #666; margin: 16px 0 12px;">Lotes individuais (${tesouroRegistros.length})</h4>
+        ${tesouroRegistros.map((r, i) => {
+          const a = analisesLotes[i]
+          return `
+          <div style="padding: 16px; background: #f9f9f8; border-radius: 14px; margin-bottom: 10px; border-left: 4px solid ${r.sinal === 'vender' ? '#dc2626' : '#16a34a'};">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-size: 13px; color: #666;">Compra: <strong style="color: #0d0d0d;">${r.dataCompra}</strong></span>
+              <span style="${pill(r.sinal === 'vender' ? '#fef2f2' : '#f0fdf4', r.sinal === 'vender' ? '#dc2626' : '#16a34a')}">${r.sinal.toUpperCase()}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; font-size: 13px;">
+              <span>Investido: <strong>R$ ${r.valorInvestido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+              <span>Taxa: <strong>${r.taxaContratada.toFixed(2)}%</strong></span>
+              ${a ? `
+              <span>MD: <strong>${a.md.toFixed(2)}a</strong></span>
+              <span>IR: <strong>${a.aliquotaIrAtual}%</strong></span>
+              <span style="${a['mtmR$'] >= 0 ? pos : neg}">MTM: <strong>${a['mtmR$'] >= 0 ? '+' : ''}R$ ${a['mtmR$'].toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> (${a.mtmPct >= 0 ? '+' : ''}${a.mtmPct.toFixed(2)}%)</span>
+              <span>IR 15%: <strong>${a.diasParaMenorIr === 0 ? '✓' : a.diasParaMenorIr + 'd'}</strong></span>
+              ` : ''}
+            </div>
+            <p style="font-size: 12px; color: #888; margin: 8px 0 0; font-style: italic;">${r.analise}</p>
+          </div>`
+        }).join('')}
+      </div>` : ''
 
+    // ── IA Analysis section ──
     const iaSection = analiseIa ? `
-      <div style="margin-top: 32px; padding: 28px; background: #fff; border-radius: 20px; border: 1px solid rgba(0,0,0,0.05); ${shadow}">
-        <h3 style="font-size: 20px; font-weight: 800; color: #1a73e8; margin: 0 0 16px; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0;">✦ Análise Inteligente</h3>
-        <div style="font-size: 15px; line-height: 1.7; color: #333;">${analiseIa.analise}</div>
+      <div style="${card} border-left: 4px solid #1a73e8;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+          <span style="${pill(analiseIa.avaliacao === 'bom' ? '#f0fdf4' : analiseIa.avaliacao === 'regular' ? '#fffbeb' : '#fef2f2', analiseIa.avaliacao === 'bom' ? '#16a34a' : analiseIa.avaliacao === 'regular' ? '#d97706' : '#dc2626')} font-size: 13px;">${analiseIa.avaliacao === 'bom' ? 'BOM' : analiseIa.avaliacao === 'regular' ? 'REGULAR' : 'RUIM'}</span>
+          <h3 style="font-size: 18px; font-weight: 800; color: #0d0d0d; margin: 0;">${analiseIa.titulo}</h3>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px;">
+          <div style="${block} text-align: center;"><p style="${label}">Retorno líquido</p><p style="font-size: 15px; font-weight: 700; color: #0d0d0d; margin: 0;">${analiseIa.numerosChave.retornoLiquidoEstimado}</p></div>
+          <div style="${block} text-align: center;"><p style="${label}">Ganho real (IPCA)</p><p style="font-size: 15px; font-weight: 700; color: #0d0d0d; margin: 0;">${analiseIa.numerosChave.ganhoRealAcimaIpca}</p></div>
+          <div style="${block} text-align: center;"><p style="${label}">vs Tesouro Selic</p><p style="font-size: 15px; font-weight: 700; color: #0d0d0d; margin: 0;">${analiseIa.numerosChave.comparacaoTesouroSelic}</p></div>
+        </div>
+        <div style="font-size: 14px; line-height: 1.8; color: #333; margin-bottom: 16px;">
+          ${analiseIa.analise.split('\n').filter(p => p.trim()).map(p => `<p style="margin: 0 0 10px;">${p}</p>`).join('')}
+        </div>
+        ${analiseIa.ciladas.length > 0 ? `
+        <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+          <strong style="font-size: 13px; color: #92400e;">⚠ Alertas detectados</strong>
+          <ul style="margin: 8px 0 0; padding-left: 20px; font-size: 13px; color: #78350f;">
+            ${analiseIa.ciladas.map(c => `<li style="margin-bottom: 4px;">${c}</li>`).join('')}
+          </ul>
+        </div>` : ''}
+        <div style="text-align: center; padding: 14px 20px; border-radius: 12px; background: ${analiseIa.recomendacao === 'MANTER' ? '#f0fdf4' : analiseIa.recomendacao === 'AGUARDAR' ? '#fffbeb' : '#fef2f2'}; border: 1px solid ${analiseIa.recomendacao === 'MANTER' ? '#bbf7d0' : analiseIa.recomendacao === 'AGUARDAR' ? '#fde68a' : '#fecaca'}; margin-bottom: 12px;">
+          <span style="${pill(analiseIa.recomendacao === 'MANTER' ? '#16a34a' : analiseIa.recomendacao === 'AGUARDAR' ? '#d97706' : '#dc2626', '#fff')} font-size: 14px;">${analiseIa.recomendacao}</span>
+          <span style="display: inline-block; margin-left: 8px; font-size: 12px; font-weight: 600; color: #666;">${analiseIa.timing}</span>
+        </div>
+        <p style="text-align: center; font-size: 14px; font-style: italic; color: #555; margin: 0;">"${analiseIa.resumo}"</p>
       </div>
     ` : ''
 
     return `
     <!DOCTYPE html>
     <html lang="pt-br">
-    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Análise Financeira</title></head>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Análise Financeira — Oráculo Financeiro</title>
+      <style>
+        @media (max-width: 600px) {
+          .container { padding: 16px !important; }
+          .grid-2, .grid-3 { grid-template-columns: 1fr !important; }
+        }
+      </style>
+    </head>
     <body style="margin: 0; padding: 0; background: #f5f4f4; ${font}">
-      <div style="max-width: 700px; margin: 0 auto; padding: 40px 20px;">
-        <header style="text-align: center; margin-bottom: 32px;">
-          <h1 style="font-size: 28px; font-weight: 900; color: #0d0d0d; margin: 0 0 8px;">Oráculo Financeiro</h1>
+      <div class="container" style="max-width: 740px; margin: 0 auto; padding: 40px 24px;">
+
+        <header style="text-align: center; margin-bottom: 28px;">
+          <div style="display: inline-block; padding: 8px 20px; background: #0d0d0d; color: #fff; border-radius: 100px; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 8px;">Oráculo Financeiro</div>
           <p style="font-size: 14px; color: #888; margin: 0;">Análise personalizada de renda fixa</p>
         </header>
 
-        <div style="background: #fff; border-radius: 20px; padding: 24px; border: 1px solid rgba(0,0,0,0.05); ${shadow} margin-bottom: 24px;">
-          <h3 style="font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 12px;">Parâmetros</h3>
-          <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-            <div style="background: #f5f4f4; padding: 10px 16px; border-radius: 10px;"><strong>CDI:</strong> ${cdiAtual}%</div>
-            <div style="background: #f5f4f4; padding: 10px 16px; border-radius: 10px;"><strong>IPCA:</strong> ${ipcaProjetado}%</div>
-            <div style="background: #f5f4f4; padding: 10px 16px; border-radius: 10px;"><strong>Duração:</strong> ${durationAnos} anos</div>
+        <div style="${card}">
+          <h3 style="font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 14px;">Parâmetros de Simulação</h3>
+          <div class="grid-3" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+            <div style="${block} text-align: center;"><p style="${label}">CDI atual</p><p style="${val}">${cdiAtual}% a.a.</p></div>
+            <div style="${block} text-align: center;"><p style="${label}">IPCA projetado</p><p style="${val}">${ipcaProjetado}% a.a.</p></div>
+            <div style="${block} text-align: center;"><p style="${label}">Macaulay Duration</p><p style="${val}">${durationAnos} anos</p></div>
           </div>
         </div>
 
-        ${tesouroRegistros.length > 0 ? `
-        <div style="background: #fff; border-radius: 20px; padding: 24px; border: 1px solid rgba(0,0,0,0.05); ${shadow} margin-bottom: 24px;">
-          <h3 style="font-size: 18px; font-weight: 700; color: #0d0d0d; margin: 0 0 16px;">Tesouro IPCA+ (${tesouroRegistros.length} lotes)</h3>
-          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-            <thead><tr style="background: #f5f4f4;"><th style="padding: 10px 12px; text-align: left;">Data</th><th style="padding: 10px 12px; text-align: left;">Valor</th><th style="padding: 10px 12px; text-align: left;">Taxa</th><th style="padding: 10px 12px; text-align: left;">Sinal</th></tr></thead>
-            <tbody>${lotesHtml}</tbody>
-          </table>
-        </div>` : ''}
-
-        ${lciRegistros.length > 0 ? `
-        <div style="background: #fff; border-radius: 20px; padding: 24px; border: 1px solid rgba(0,0,0,0.05); ${shadow} margin-bottom: 24px;">
-          <h3 style="font-size: 18px; font-weight: 700; color: #0d0d0d; margin: 0 0 16px;">LCI/LCA (${lciRegistros.length} registros)</h3>
-          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-            <thead><tr style="background: #f5f4f4;"><th style="padding: 10px 12px; text-align: left;">Aporte</th><th style="padding: 10px 12px; text-align: left;">Prazo</th><th style="padding: 10px 12px; text-align: left;">Taxa</th><th style="padding: 10px 12px; text-align: left;">CDB Eq.</th></tr></thead>
-            <tbody>${lciHtml}</tbody>
-          </table>
-        </div>` : ''}
-
+        ${lciSection}
+        ${tesouroSection}
         ${iaSection}
 
         <footer style="text-align: center; margin-top: 32px; padding-top: 16px; border-top: 1px solid #eee;">
-          <p style="font-size: 12px; color: #888;">Gerado via Oráculo Financeiro ${APP_VERSION}</p>
+          <p style="font-size: 12px; color: #888; margin: 0;">Gerado via Oráculo Financeiro ${APP_VERSION}</p>
         </footer>
+
       </div>
     </body>
     </html>
