@@ -6,6 +6,7 @@ interface D1Prepared {
     all: () => Promise<D1Result>
   }
   all: () => Promise<D1Result>
+  run: () => Promise<unknown>
 }
 
 interface D1DatabaseLike {
@@ -63,6 +64,9 @@ export const onRequestGet = async ({ env, request }: Context) => {
     const limit = Number.isFinite(limitParam) ? Math.min(Math.max(Math.trunc(limitParam), 1), 100) : 25
     const offset = Number.isFinite(offsetParam) ? Math.max(Math.trunc(offsetParam), 0) : 0
 
+    // Self-healing: add email column if missing
+    try { await db.prepare(`ALTER TABLE oraculo_lci_cdb_registros ADD COLUMN email TEXT DEFAULT ''`).run() } catch { /* exists */ }
+
     const countResult = await db.prepare(
       'SELECT COUNT(*) AS total FROM oraculo_lci_cdb_registros'
     ).all()
@@ -114,19 +118,23 @@ export const onRequestPost = async ({ env, request }: Context) => {
     const taxaLciLca = Number(payload.taxaLciLca)
     const aporte = Number(payload.aporte)
     const cdbEquivalente = Number(payload.cdbEquivalente)
+    const email = String((payload as Record<string, unknown>).email ?? '').trim().toLowerCase()
 
     if ([prazoDias, taxaLciLca, aporte, cdbEquivalente].some((value) => Number.isNaN(value) || value < 0)) {
       return jsonResponse({ ok: false, error: 'Payload inválido para registro LCI/CDB.' }, 400)
     }
 
+    // Self-healing: add email column if missing
+    try { await db.prepare(`ALTER TABLE oraculo_lci_cdb_registros ADD COLUMN email TEXT DEFAULT ''`).run() } catch { /* exists */ }
+
     const id = crypto.randomUUID()
     const criadoEm = new Date().toISOString()
 
     await db.prepare(
-      `INSERT INTO oraculo_lci_cdb_registros (id, created_at, prazo_dias, taxa_cdi, aporte, rendimento_bruto)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6)`
+      `INSERT INTO oraculo_lci_cdb_registros (id, created_at, prazo_dias, taxa_cdi, aporte, rendimento_bruto, email)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`
     )
-      .bind(id, criadoEm, prazoDias, taxaLciLca, aporte, cdbEquivalente)
+      .bind(id, criadoEm, prazoDias, taxaLciLca, aporte, cdbEquivalente, email)
       .run()
 
     const aliquotaIr = prazoDias <= 180 ? 22.5 : prazoDias <= 360 ? 20 : prazoDias <= 720 ? 17.5 : 15
