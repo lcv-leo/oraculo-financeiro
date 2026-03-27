@@ -1060,17 +1060,19 @@ td {
   font-size: 0.82rem;
   padding: 0.5rem 1.2rem;
   border-radius: 100px;
-  border: 1px solid rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.12);
   background: #fff;
   color: #0d0d0d;
   cursor: pointer;
   font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.10);
   transition: all 0.2s;
 }
 .footer-actions button:hover {
-  background: #1a73e8;
+  background: #1557b0;
   color: #fff;
-  border-color: #1a73e8;
+  border-color: #1557b0;
+  box-shadow: 0 4px 14px rgba(26,115,232,0.35);
 }
 
 /* ── Floating Scroll Buttons ───────────────────────────────────────── */

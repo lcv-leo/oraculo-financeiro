@@ -1,5 +1,16 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.06.00] — 2026-03-27
+### Corrigido
+- **Cron Worker CSV Parser**: reescrito `parseCSV` para mapear corretamente as 7 colunas do CSV do Tesouro Transparente (antes mapeava 8 colunas incorretamente, causando dados corrompidos e falha na identificação de títulos IPCA+).
+- **Cron Worker Full-Scan**: implementada varredura completa do CSV para identificar a data-base mais recente (dados não são cronologicamente ordenados).
+
+### Adicionado
+- **Cron Worker Observability**: logging estruturado (`console.log`/`console.error`) em todo o pipeline do worker (download, parse, upsert) para monitoramento via Cloudflare Observability.
+
+### Melhorado
+- **Footer Buttons (UX)**: botões "Contato" e "Enviar por E-mail" agora possuem `box-shadow` para profundidade visual e hover mais intenso (`#1557b0` com glow), melhorando discoverability.
+
 ## [v01.05.00] — 2026-03-26
 ### Alterado
 - **E-mail de análise — reescrita completa**: `gerarHtmlRelatorio` agora replica a tela do frontend com inline CSS. Todas as seções: parâmetros (CDI/IPCA/Duration), LCI/LCA (alíquota IR, CDB equivalente, rendimentos, ganho real, benchmark colorido), Tesouro IPCA+ (resumo carteira, MTM com convexidade, lotes individuais com badge VENDER/MANTER, sinal), e análise IA completa (avaliação badge, números-chave, ciladas, recomendação, timing, resumo). Design tiptap.dev com `@media` responsive.
