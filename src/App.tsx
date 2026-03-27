@@ -1216,7 +1216,7 @@ function App() {
               </p>
             </div>
             <label className="btn-ia" style={{ cursor: processandoImg ? 'not-allowed' : 'pointer', margin: 0, padding: '0.5rem 1.25rem', opacity: processandoImg ? 0.6 : 1, pointerEvents: processandoImg ? 'none' : 'auto' }}>
-              {processandoImg ? '⏳ Processando...' : 'Upload Imagem'}
+              {processandoImg ? '⏳ Processando...' : 'Upload Imagem/PDF'}
               <input type="file" accept="image/*,.pdf,application/pdf" style={{ display: 'none' }} onChange={handleInputFileChange} disabled={processandoImg} />
             </label>
           </div>
