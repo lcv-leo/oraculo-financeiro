@@ -1,6 +1,9 @@
 # Changelog — Oráculo Financeiro
 
 ## [v01.07.01] — 2026-03-27
+### Corrigido
+- **CSS Grid Overlap**: os containers `.grid` em formulários (especialmente em *"Registrar novo lote"*) agora possuem `min-width: 0` nos itens filhos e `text-overflow: ellipsis` no `<select>`. Isso evita que a string de vencimento alongada do Tesouro IPCA+ com Juros Semestrais expanda a trilha do grid para fora da tela, encavalando sobre o input de "Valor Investido".
+
 ### Melhorado
 - **Taxonomia de Juros Semestrais**: Títulos "Tesouro IPCA+ com Juros Semestrais" agora recebem o sufixo `(Semestral)` na string de vencimento (ex: `15/08/2032 (Semestral)`). Isso resolve o bug visual no dropdown onde as NTN-Bs Principais se misturavam às NTN-Bs padrão, impedindo o usuário de selecionar a opção correta devido à sobreposição de \`value\` no `<select>`, e melhora a clareza do relatório.
 

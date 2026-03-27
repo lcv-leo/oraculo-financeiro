@@ -159,18 +159,30 @@ label {
   gap: 0.3rem;
   font-size: 0.92rem;
   color: #0d0d0d;
+  min-width: 0;
 }
 
-input {
+input, select {
   border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 10px;
   padding: 0.58rem 0.7rem;
   font: inherit;
   background: #ffffff;
   transition: border-color 0.2s, box-shadow 0.2s;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
-input:focus-visible {
+select {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  appearance: auto;
+  cursor: pointer;
+}
+
+input:focus-visible, select:focus-visible {
   outline: none;
   border-color: #1a73e8;
   box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.2);
