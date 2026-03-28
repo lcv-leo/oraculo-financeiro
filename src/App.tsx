@@ -1378,7 +1378,7 @@ function App() {
             </div>
             <label className="btn-ia" style={{ cursor: processandoImg ? 'not-allowed' : 'pointer', margin: 0, padding: '0.5rem 1.25rem', opacity: processandoImg ? 0.6 : 1, pointerEvents: processandoImg ? 'none' : 'auto' }}>
               {processandoImg ? '⏳ Processando...' : 'Upload Imagem/PDF'}
-              <input type="file" accept="image/*,.pdf,application/pdf" style={{ display: 'none' }} onChange={handleInputFileChange} disabled={processandoImg} />
+              <input id="oraculo-file-upload" name="documentUpload" aria-label="Upload de extrato" type="file" accept="image/*,.pdf,application/pdf" style={{ display: 'none' }} onChange={handleInputFileChange} disabled={processandoImg} />
             </label>
           </div>
 
@@ -1691,9 +1691,9 @@ function App() {
 
       {/* ── Auth Modal ────────────────────────────────────────────────── */}
       {authMode && (
-        <div className="auth-overlay" onClick={() => { setAuthMode(null); setAuthStep('email'); setAuthEmail(''); setAuthToken('') }}>
+        <div className="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="oraculo-auth-title" onClick={() => { setAuthMode(null); setAuthStep('email'); setAuthEmail(''); setAuthToken('') }}>
           <div className="auth-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{authMode === 'save' ? '💾 Salvar Análise' : authMode === 'delete' ? '🗑️ Excluir Meus Dados' : '📂 Resgatar Análise'}</h3>
+            <h3 id="oraculo-auth-title">{authMode === 'save' ? '💾 Salvar Análise' : authMode === 'delete' ? '🗑️ Excluir Meus Dados' : '📂 Resgatar Análise'}</h3>
 
             {authStep === 'email' && (
               <>
@@ -1703,9 +1703,14 @@ function App() {
                   ? 'Insira o e-mail vinculado aos dados que deseja excluir permanentemente. Enviaremos um código de confirmação.'
                   : 'Insira o e-mail usado anteriormente para resgatar sua análise.'}
                 </p>
+                <label htmlFor="oraculo-auth-email" className="sr-only">Endereço de e-mail</label>
                 <input
+                  id="oraculo-auth-email"
+                  name="email"
+                  autoComplete="email"
                   type="email"
                   placeholder="seu@email.com"
+                  aria-label="Endereço de e-mail"
                   value={authEmail}
                   onChange={(e) => setAuthEmail(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && void handleAuthEmailSubmit()}
@@ -1723,12 +1728,17 @@ function App() {
             {authStep === 'token' && (
               <>
                 <p>Código enviado para <strong>{authEmail}</strong>. Insira abaixo:</p>
+                <label htmlFor="oraculo-auth-token" className="sr-only">Código de verificação</label>
                 <input
+                  id="oraculo-auth-token"
+                  name="oneTimeCode"
+                  autoComplete="one-time-code"
                   className="token-input"
                   type="text"
                   inputMode="numeric"
                   maxLength={6}
                   placeholder="000000"
+                  aria-label="Código de verificação"
                   value={authToken}
                   onChange={(e) => setAuthToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   onKeyDown={(e) => e.key === 'Enter' && authToken.length === 6 && void handleAuthTokenSubmit()}
