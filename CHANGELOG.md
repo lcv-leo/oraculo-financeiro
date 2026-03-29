@@ -1,5 +1,12 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.07.02] — 2026-03-29
+### Alterado
+- **CI/CD branch standardization**: workflow de deploy padronizado para publicar no branch `main` na Cloudflare Pages, com trigger GitHub em `main` e `concurrency.group` atualizado para `deploy-main`.
+
+### Controle de versão
+- `oraculo-financeiro`: APP v01.07.01 → APP v01.07.02
+
 ## [v01.07.01] — 2026-03-27
 ### Corrigido
 - **CSS Grid Overlap**: os containers `.grid` em formulários (especialmente em *"Registrar novo lote"*) agora possuem `min-width: 0` nos itens filhos e `text-overflow: ellipsis` no `<select>`. Isso evita que a string de vencimento alongada do Tesouro IPCA+ com Juros Semestrais expanda a trilha do grid para fora da tela, encavalando sobre o input de "Valor Investido".
