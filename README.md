@@ -7,13 +7,13 @@ Reconstrução do app **Oráculo Edge Analytics** com:
 - 2 abas ativas:
   - `LCI/LCA → equivalente em CDB`
   - `Tesouro Direto IPCA+`
-- Persistência real em **Cloudflare D1** (database: `financeiro-db`)
+- Persistência real em **Cloudflare D1** (database: `bigdata-db`)
 - Deploy automático via GitHub Actions
 
 ## Convenção de branch
 
 - GitHub: `main`
-- Cloudflare Pages (produção): `production`
+- Cloudflare Pages (main): `main`
 
 ## Banco D1
 
