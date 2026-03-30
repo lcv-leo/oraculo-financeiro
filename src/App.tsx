@@ -1,8 +1,9 @@
 // Módulo: oraculo-financeiro/src/App.tsx
-// Versão: v01.07.02
+// Versão: v01.08.00
 // Descrição: Frontend do Oráculo Financeiro — análise LCI/LCA e Tesouro IPCA+ com IA Gemini.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNotification } from './components/Notification'
 import './App.css'
 import {
   aliquotaIrRegressiva,
@@ -21,7 +22,7 @@ import {
   diasParaMenorIr as calcDiasParaMenorIr,
 } from './lib/finance'
 
-const APP_VERSION = 'APP v01.07.02'
+const APP_VERSION = 'APP v01.08.00'
 
 type TabId = 'lci-lca' | 'tesouro-ipca'
 
@@ -58,15 +59,7 @@ type TituloTD = {
   pu: number
 }
 
-type NotificationTone = 'success' | 'info' | 'warning' | 'error'
-type ConnectionStatus = 'checking' | 'online' | 'offline'
 
-type NotificationItem = {
-  id: string
-  tone: NotificationTone
-  title: string
-  message: string
-}
 
 
 type ApiCreateResponse<T> = {
@@ -162,6 +155,7 @@ function TaxaInput({ value, onChange, ...props }: {
 }
 
 function App() {
+  const { showNotification } = useNotification()
   const [activeTab, setActiveTab] = useState<TabId>('tesouro-ipca')
   const [loading, setLoading] = useState(false)
 
@@ -180,8 +174,7 @@ function App() {
 
   const [lciRegistros, setLciRegistros] = useState<RegistroLciLca[]>([])
   const [tesouroRegistros, setTesouroRegistros] = useState<RegistroTesouroIpca[]>([])
-  const [notifications, setNotifications] = useState<NotificationItem[]>([])
-  const [connectionStatus] = useState<ConnectionStatus>('online')
+
   const [analisandoIa, setAnalisandoIa] = useState(false)
   const [analiseIa, setAnaliseIa] = useState<AnaliseIA | null>(null)
   
@@ -292,8 +285,7 @@ function App() {
               setNovoLoteVencimento(sorted[0].vencimento)
             }
           }
-          pushNotification('success', 'Taxas atualizadas',
-            `${payload.titulos?.length ?? 0} vencimentos IPCA+ carregados (${payload.fonte === 'cache' ? 'cache' : 'Tesouro Transparente'} — ref: ${payload.dataReferencia ?? 'hoje'})`)
+          showNotification(`Taxas atualizadas — ${payload.titulos?.length ?? 0} vencimentos IPCA+ carregados (${payload.fonte === 'cache' ? 'cache' : 'Tesouro Transparente'} — ref: ${payload.dataReferencia ?? 'hoje'})`, 'success')
         }
       } catch {
         // Falha silenciosa — mantém o valor default manual
@@ -302,6 +294,7 @@ function App() {
       }
     }
     void fetchTaxa()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // ── LCI/LCA ─────────────────────────────────────────────────────────────
@@ -429,19 +422,7 @@ function App() {
 
 
 
-  const pushNotification = (tone: NotificationTone, title: string, message: string) => {
-    const item: NotificationItem = {
-      id: crypto.randomUUID(),
-      tone,
-      title,
-      message
-    }
 
-    setNotifications((previous) => [item, ...previous].slice(0, 4))
-    window.setTimeout(() => {
-      setNotifications((previous) => previous.filter((entry) => entry.id !== item.id))
-    }, 4200)
-  }
 
   // ── Auto-retrieve se sessão válida (server-side session token) ───────────
   // Sessão validada pelo backend via session-retrieve (token rotável).
@@ -480,7 +461,7 @@ function App() {
           if (result.dados.aporte) setAporte(result.dados.aporte)
           // Renovar sessão com novo token rotacionado
           if (result.sessionToken) createSession(session.email, result.sessionToken)
-          pushNotification('success', 'Sessão restaurada', `Dados de ${session.email} carregados automaticamente.`)
+          showNotification(`Sessão restaurada — Dados de ${session.email} carregados automaticamente.`, 'success')
         } else {
           // Sessão inválida/expirada no backend — limpar local
           clearSession()
@@ -507,7 +488,7 @@ function App() {
     }
 
     if (prazoDias <= 0 || taxaLciLca <= 0 || aporte <= 0) {
-      pushNotification('warning', 'Parâmetros inválidos', 'Informe prazo, taxa e aporte com valores positivos.')
+      showNotification('Parâmetros inválidos — Informe prazo, taxa e aporte com valores positivos.', 'warning')
       return
     }
 
@@ -528,9 +509,9 @@ function App() {
 
       const payload = await response.json() as ApiCreateResponse<RegistroLciLca>
       setLciRegistros((previous) => [payload.data, ...previous].slice(0, 200))
-      pushNotification('success', 'Registro salvo', 'Dados gravados com sucesso no D1 financeiro-db.')
+      showNotification('Registro salvo — Dados gravados com sucesso no D1.', 'success')
     } catch (error) {
-      pushNotification('error', 'Erro ao salvar', error instanceof Error ? error.message : 'Não foi possível salvar no D1.')
+      showNotification(`Erro ao salvar — ${error instanceof Error ? error.message : 'Não foi possível salvar no D1.'}`, 'error')
     } finally {
       setLoading(false)
     }
@@ -552,7 +533,7 @@ function App() {
 
   const handleAuthEmailSubmit = async () => {
     if (!authEmail || !authEmail.includes('@')) {
-      pushNotification('warning', 'E-mail inválido', 'Insira um endereço de e-mail válido.')
+      showNotification('E-mail inválido — Insira um endereço de e-mail válido.', 'warning')
       return
     }
     setAuthLoading(true)
@@ -570,12 +551,12 @@ function App() {
 
       if (result.ok) {
         setAuthStep('token')
-        pushNotification('info', 'Código enviado', result.message ?? 'Verifique seu e-mail.')
+        showNotification(`Código enviado — ${result.message ?? 'Verifique seu e-mail.'}`, 'info')
       } else {
-        pushNotification('error', 'Erro', result.error ?? 'Falha ao enviar código.')
+        showNotification(result.error ?? 'Falha ao enviar código.', 'error')
       }
     } catch {
-      pushNotification('error', 'Erro de rede', 'Não foi possível conectar ao servidor.')
+      showNotification('Erro de rede — Não foi possível conectar ao servidor.', 'error')
     } finally {
       setAuthLoading(false)
     }
@@ -605,10 +586,10 @@ function App() {
           setTesouroRegistros([])
           setLciRegistros([])
           clearSession()
-          pushNotification('success', 'Dados excluídos', result.message ?? 'Todos os seus dados foram removidos permanentemente.')
+          showNotification(result.message ?? 'Dados excluídos — Todos os seus dados foram removidos permanentemente.', 'success')
         } else if (authMode === 'save') {
           if (result.sessionToken) createSession(authEmail, result.sessionToken)
-          pushNotification('success', '✅ Salvo com sucesso!', `Dados vinculados a ${authEmail}. Sua sessão permanece ativa por 60 minutos — você pode atualizar a página sem perder seus dados.`)
+          showNotification(`✅ Salvo com sucesso! Dados vinculados a ${authEmail}. Sessão ativa por 60 min.`, 'success')
         } else if (result.dados) {
           // Restaurar dados
           if (result.dados.tesouroRegistros) setTesouroRegistros(result.dados.tesouroRegistros)
@@ -621,7 +602,7 @@ function App() {
           if (result.dados.taxaLciLca) setTaxaLciLca(result.dados.taxaLciLca)
           if (result.dados.aporte) setAporte(result.dados.aporte)
           if (result.sessionToken) createSession(authEmail, result.sessionToken)
-          pushNotification('success', '✅ Dados restaurados!', `Sessão ativa para ${authEmail} por 60 minutos. Você pode atualizar a página sem perder seus dados.`)
+          showNotification(`✅ Dados restaurados! Sessão ativa para ${authEmail} por 60 min.`, 'success')
         }
         // Fechar modal
         setAuthMode(null)
@@ -629,10 +610,10 @@ function App() {
         setAuthEmail('')
         setAuthToken('')
       } else {
-        pushNotification('error', 'Erro', result.error ?? 'Código inválido.')
+        showNotification(result.error ?? 'Código inválido.', 'error')
       }
     } catch {
-      pushNotification('error', 'Erro de rede', 'Não foi possível conectar ao servidor.')
+      showNotification('Erro de rede — Não foi possível conectar ao servidor.', 'error')
     } finally {
       setAuthLoading(false)
     }
@@ -651,7 +632,7 @@ function App() {
 
   const handleContatoSubmit = async () => {
     if (!contatoForm.name || !contatoForm.email || !contatoForm.message) {
-      pushNotification('warning', 'Campos obrigatórios', 'Preencha nome, e-mail e mensagem.')
+      showNotification('Campos obrigatórios — Preencha nome, e-mail e mensagem.', 'warning')
       return
     }
     setContatoSending(true)
@@ -663,14 +644,14 @@ function App() {
       })
       const data = await res.json() as { ok: boolean; message?: string; error?: string }
       if (data.ok) {
-        pushNotification('success', 'Enviado!', data.message ?? 'Mensagem enviada com sucesso.')
+        showNotification(data.message ?? 'Mensagem enviada com sucesso.', 'success')
         setShowContato(false)
         setContatoForm({ name: '', phone: '', email: '', message: '' })
       } else {
-        pushNotification('error', 'Erro', data.error ?? 'Falha ao enviar.')
+        showNotification(data.error ?? 'Falha ao enviar.', 'error')
       }
     } catch {
-      pushNotification('error', 'Erro de rede', 'Não foi possível conectar ao servidor.')
+      showNotification('Erro de rede — Não foi possível conectar ao servidor.', 'error')
     } finally {
       setContatoSending(false)
     }
@@ -902,14 +883,14 @@ function App() {
       })
       const data = await res.json() as { ok: boolean; message?: string; error?: string }
       if (data.ok) {
-        pushNotification('success', 'Enviado!', data.message ?? 'E-mail enviado com sucesso.')
+        showNotification(data.message ?? 'E-mail enviado com sucesso.', 'success')
         setShowEmailModal(false)
         setEmailDestinoInput('')
       } else {
-        pushNotification('error', 'Erro', data.error ?? 'Falha ao enviar e-mail.')
+        showNotification(data.error ?? 'Falha ao enviar e-mail.', 'error')
       }
     } catch {
-      pushNotification('error', 'Erro de rede', 'Não foi possível enviar o e-mail.')
+      showNotification('Erro de rede — Não foi possível enviar o e-mail.', 'error')
     } finally {
       setEmailSending(false)
     }
@@ -917,7 +898,7 @@ function App() {
 
   const handleAdicionarLote = () => {
     if (!novoLoteDataCompra || novoLoteValor <= 0 || novoLoteTaxa <= 0 || taxaAtualTesouro <= 0) {
-      pushNotification('warning', 'Parâmetros inválidos', 'Preencha data, valor e taxas válidas para o lote.')
+      showNotification('Parâmetros inválidos — Preencha data, valor e taxas válidas para o lote.', 'warning')
       return
     }
 
@@ -971,7 +952,7 @@ function App() {
 
     // Adicionar lote ao estado local (sem API)
     setTesouroRegistros((prev) => [novoRegistro, ...prev].slice(0, 200))
-    pushNotification('info', 'Lote adicionado', `${novoLoteVencimento} — R$ ${novoLoteValor.toLocaleString('pt-BR')}, taxa ${novoLoteTaxa.toFixed(2)}%`)
+    showNotification(`Lote adicionado — ${novoLoteVencimento} — R$ ${novoLoteValor.toLocaleString('pt-BR')}, taxa ${novoLoteTaxa.toFixed(2)}%`, 'info')
     setActiveTab('tesouro-ipca')
   }
 
@@ -995,7 +976,7 @@ function App() {
         }
       } else {
         if (tesouroRegistros.length === 0) {
-          pushNotification('warning', 'Carteira vazia', 'Adicione pelo menos um lote antes de analisar.')
+          showNotification('Carteira vazia — Adicione pelo menos um lote antes de analisar.', 'warning')
           setAnalisandoIa(false)
           return
         }
@@ -1030,7 +1011,7 @@ function App() {
       const data = await res.json() as { ok: boolean; analise: AnaliseIA }
       setAnaliseIa(data.analise)
     } catch (error) {
-      pushNotification('error', 'Erro na análise IA', error instanceof Error ? error.message : 'Falha ao contactar Gemini.')
+      showNotification(`Erro na análise IA — ${error instanceof Error ? error.message : 'Falha ao contactar Gemini.'}`, 'error')
     } finally {
       setAnalisandoIa(false)
     }
@@ -1040,12 +1021,12 @@ function App() {
     const isImage = file.type.startsWith('image/')
     const isPdf = file.type === 'application/pdf'
     if (!file || (!isImage && !isPdf)) {
-      pushNotification('warning', 'Formato inválido', 'Selecione uma imagem (PNG, JPG) ou um arquivo PDF.')
+      showNotification('Formato inválido — Selecione uma imagem (PNG, JPG) ou um arquivo PDF.', 'warning')
       return
     }
 
     setProcessandoImg(true)
-    pushNotification('info', isPdf ? 'Processando PDF' : 'Processando imagem', 'O Gemini está extraindo os dados do extrato...')
+    showNotification(`${isPdf ? 'Processando PDF' : 'Processando imagem'} — O Gemini está extraindo os dados do extrato...`, 'info')
 
     try {
       const base64Data = await new Promise<string>((resolve, reject) => {
@@ -1070,7 +1051,7 @@ function App() {
       }
 
       if (!payload.data || payload.data.length === 0) {
-        pushNotification('warning', 'Nenhum dado encontrado', 'A IA não conseguiu identificar lotes do Tesouro IPCA+ no arquivo.')
+        showNotification('Nenhum dado encontrado — A IA não conseguiu identificar lotes do Tesouro IPCA+ no arquivo.', 'warning')
         return
       }
 
@@ -1122,16 +1103,15 @@ function App() {
       setNovoLoteTaxa(ultimo.taxaContratada)
 
       if (salvos > 0) {
-        pushNotification('success', 'Extração concluída',
-          `${salvos} lote${salvos > 1 ? 's' : ''} extraído${salvos > 1 ? 's' : ''} e salvo${salvos > 1 ? 's' : ''} no D1.${erros > 0 ? ` (${erros} erro${erros > 1 ? 's' : ''})` : ''}`)
+        showNotification(`Extração concluída — ${salvos} lote${salvos > 1 ? 's' : ''} extraído${salvos > 1 ? 's' : ''} e salvo${salvos > 1 ? 's' : ''} no D1.${erros > 0 ? ` (${erros} erro${erros > 1 ? 's' : ''})` : ''}`, 'success')
       }
       if (erros > 0 && salvos === 0) {
-        pushNotification('error', 'Falha ao salvar', 'Nenhum lote extraído pôde ser salvo no banco de dados.')
+        showNotification('Falha ao salvar — Nenhum lote extraído pôde ser salvo no banco de dados.', 'error')
       }
 
       setActiveTab('tesouro-ipca')
     } catch (error) {
-      pushNotification('error', 'Erro no Vision', error instanceof Error ? error.message : 'Falha na comunicação com o Gemini.')
+      showNotification(`Erro no Vision — ${error instanceof Error ? error.message : 'Falha na comunicação com o Gemini.'}`, 'error')
     } finally {
       setProcessandoImg(false)
     }
@@ -1156,22 +1136,12 @@ function App() {
 
   return (
     <main className="container">
-      <aside className="notifications" aria-live="polite">
-        {notifications.map((item) => (
-          <div key={item.id} className={`toast ${item.tone}`}>
-            <strong>{item.title}</strong>
-            <p>{item.message}</p>
-          </div>
-        ))}
-      </aside>
+
 
       <header className="hero">
         <div className="hero-top">
           <div className="brand-panel">
             <p className="chip">Oráculo Financeiro</p>
-          </div>
-          <div className={`status-square ${connectionStatus}`} aria-live="polite" aria-label="Status de conexão">
-            <span>{connectionStatus === 'online' ? 'Online' : connectionStatus === 'offline' ? 'Offline' : 'Verificando'}</span>
           </div>
         </div>
       </header>
