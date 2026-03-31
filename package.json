@@ -12,6 +12,7 @@
     "d1:migrate": "npx --yes wrangler@latest d1 execute financeiro-db --remote --file db/001_init.sql ; npx --yes wrangler@latest d1 execute financeiro-db --remote --file db/002_tesouro_ipca_lotes.sql"
   },
   "dependencies": {
+    "lucide-react": "^1.7.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
