@@ -33,7 +33,7 @@ export const ComplianceBanner: React.FC<ComplianceBannerProps> = ({ onViewLicens
       <span>|</span>
       <span>
         <a 
-          href="https://github.com/lcv-leo/oraculo-financeiro" 
+          href="https://github.com/lcv-leo/admin-app" 
           target="_blank" 
           rel="noopener noreferrer"
           style={{ color: '#1a73e8', textDecoration: 'none' }}

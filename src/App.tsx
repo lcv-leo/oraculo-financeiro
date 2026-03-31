@@ -8,6 +8,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNotification } from './components/Notification'
+import { ComplianceBanner } from './components/ComplianceBanner'
+import { LicencasModule } from './modules/compliance/LicencasModule'
 import './App.css'
 import {
   aliquotaIrRegressiva,
@@ -26,7 +28,7 @@ import {
   diasParaMenorIr as calcDiasParaMenorIr,
 } from './lib/finance'
 
-const APP_VERSION = 'APP v01.08.02'
+const APP_VERSION = 'APP v01.08.03'
 
 type TabId = 'lci-lca' | 'tesouro-ipca'
 
@@ -171,6 +173,7 @@ function App() {
   const { showNotification } = useNotification()
   const [activeTab, setActiveTab] = useState<TabId>('tesouro-ipca')
   const [loading, setLoading] = useState(false)
+  const [showLicenses, setShowLicenses] = useState(false)
 
   const [prazoDias, setPrazoDias] = useState(365)
   const [taxaLciLca, setTaxaLciLca] = useState(90)
@@ -1145,7 +1148,9 @@ function App() {
   }
 
   return (
-    <main className="container">
+    <>
+      {!showLicenses ? (
+      <main className="container">
 
 
       <header className="hero">
@@ -1735,7 +1740,24 @@ function App() {
           </div>
         </div>
       )}
-    </main>
+      </main>
+      ) : (
+        <main className="container" style={{ padding: '40px 16px', maxWidth: '1000px', flex: 1, margin: '0 auto' }}>
+          <div style={{ background: '#fff', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+            <LicencasModule />
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '30px', marginBottom: '10px' }}>
+              <button 
+                onClick={() => setShowLicenses(false)} 
+                type="button"
+                style={{ background: '#f0f0f0', color: '#333', border: 'none', padding: '12px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+                Voltar ao Simulador
+              </button>
+            </div>
+          </div>
+        </main>
+      )}
+      <ComplianceBanner onViewLicenses={() => setShowLicenses(true)} />
+    </>
   )
 }
 
