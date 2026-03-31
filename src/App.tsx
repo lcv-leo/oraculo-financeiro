@@ -26,7 +26,7 @@ import {
   diasParaMenorIr as calcDiasParaMenorIr,
 } from './lib/finance'
 
-const APP_VERSION = 'APP v01.08.01'
+const APP_VERSION = 'APP v01.08.02'
 
 type TabId = 'lci-lca' | 'tesouro-ipca'
 
