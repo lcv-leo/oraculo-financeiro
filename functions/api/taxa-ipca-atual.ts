@@ -7,7 +7,7 @@
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
 interface Env {
-  BIGDATA_DB: any // Cloudflare D1 binding
+  BIGDATA_DB: unknown // Cloudflare D1 binding
 }
 
 interface Context {
