@@ -1,5 +1,14 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.08.01] — 2026-03-31
+### Alterado
+- **Fluxo indireto `preview` padronizado**: branch operacional `preview` adotado no repositório para promoções consistentes para `main`.
+- **Automação de promoção**: workflow `.github/workflows/preview-auto-pr.yml` adicionado/atualizado para abrir/reusar PR `preview -> main`, habilitar auto-merge e tentar merge imediato quando elegível.
+- **Permissões do GitHub Actions**: ajuste para permitir criação/aprovação de PR por workflow, eliminando falhas 403 operacionais.
+
+### Controle de versão
+- `oraculo-financeiro`: APP v01.08.00 → APP v01.08.01
+
 ## [v01.08.00] — 2026-03-30
 ### Alterado
 - **Notificações — padrão admin-app**: sistema de notificações migrado do pattern inline `pushNotification(tone, title, message)` com state local para o padrão `useNotification` hook + `NotificationProvider` utilizado no admin-app. Pill toast centralizado no topo com backdrop blur, variantes cromáticas (success/error/info/warning), animação spring e auto-dismiss.
