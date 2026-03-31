@@ -154,6 +154,15 @@ function TaxaInput({ value, onChange, ...props }: {
   )
 }
 
+const htmlToPlainText = (html: string): string => {
+  if (typeof DOMParser === 'undefined') {
+    return html
+  }
+
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  return (doc.body.textContent ?? '').replace(/\u00a0/g, ' ')
+}
+
 function App() {
   const { showNotification } = useNotification()
   const [activeTab, setActiveTab] = useState<TabId>('tesouro-ipca')
@@ -680,10 +689,7 @@ function App() {
     }
 
     if (analiseIa) {
-      const iaTxt = analiseIa.analise
-        .replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n\n')
-        .replace(/<strong>(.*?)<\/strong>/gi, '*$1*').replace(/<b>(.*?)<\/b>/gi, '*$1*')
-        .replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+      const iaTxt = htmlToPlainText(analiseIa.analise)
       t += div + `ANÁLISE INTELIGENTE (IA)\n\n` + iaTxt.trim() + '\n'
     }
 
