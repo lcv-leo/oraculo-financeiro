@@ -1,5 +1,16 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.08.00] — 2026-03-30
+### Alterado
+- **Notificações — padrão admin-app**: sistema de notificações migrado do pattern inline `pushNotification(tone, title, message)` com state local para o padrão `useNotification` hook + `NotificationProvider` utilizado no admin-app. Pill toast centralizado no topo com backdrop blur, variantes cromáticas (success/error/info/warning), animação spring e auto-dismiss.
+- **`Notification.tsx`**: componente Context+Provider (já existia, agora efetivamente utilizado).
+- **`Notification.css`**: criado com styling idêntico ao admin-app (pill toast, Google palette, mobile responsive).
+- **`main.tsx`**: `<App />` agora envolto em `<NotificationProvider>`.
+- **`App.tsx`**: removidos tipos orphans (`NotificationTone`, `ConnectionStatus`, `NotificationItem`), state `notifications`/`connectionStatus`, função `pushNotification`, e rendering inline `<aside className="notifications">` / `<div className="status-square">`. 33 call sites convertidos para `showNotification(message, type)`.
+
+### Controle de versão
+- `oraculo-financeiro`: APP v01.07.02 → APP v01.08.00
+
 ## [v01.07.02] — 2026-03-29
 ### Alterado
 - **CI/CD branch standardization**: workflow de deploy padronizado para publicar no branch `main` na Cloudflare Pages, com trigger GitHub em `main` e `concurrency.group` atualizado para `deploy-main`.
