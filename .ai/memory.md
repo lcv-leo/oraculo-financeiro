@@ -1,5 +1,15 @@
 # AI Memory Log - oraculo-financeiro
 
+
+## 2026-04-02 - Oráculo Financeiro v01.08.06 - Migração e Tratamento de Exceções SDK IA
+### Corrigido
+- Implementado tratamento absoluto de exceções (
+o-explicit-any zero tolerância usando instanceof Error) nos backends Cloudflare Workers que comunicam com serviços de IA.
+- Migração completa para novo SDK oficial @google/genai apagando as chamadas legadas instáveis que eram dependentes da lib generative-ai.
+- Toda a governança de 'rate limit' local do oráculo foi removida e delegada ao Cloudflare WAF, limpando resquícios do nforceRateLimit.
+
+### Controle de versão
+- oraculo-financeiro: APP v01.08.05 -> APP v01.08.06
 ## 2026-03-28 — Admin-App v01.66.00 — Oráculo Rate Limit Controls
 ### Adicionado
 - **Oráculo — Rate Limit (paridade Astrólogo)**: controle completo de rate limit implementado para o módulo Oráculo Financeiro, cobrindo 4 rotas: `analisar-ia`, `enviar-email`, `contato`, `tesouro-ipca-vision`.
@@ -132,3 +142,4 @@
   - Extração literal validada de `dataCompra`, `valorInvestido` e `taxaContratada` com purga cirúrgica de marcação markdown.
 - **Frontend Dropzone**:
   - `App.tsx` abraçou os arrays de evento `onDragOver` e `onDrop` revelando um *backdrop filter* azul (identidade Visual Tiptap). O frontend auto-preenche e notifica sucesso com `pushNotification` sem violar requisições em lote desnecessárias ao banco de dados `BIGDATA_DB`.
+
