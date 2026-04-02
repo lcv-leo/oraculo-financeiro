@@ -3,6 +3,8 @@
 // Descrição: OCR multimodal via Gemini 2.5 Pro — extrai lotes do Tesouro IPCA+ a partir de imagens de extratos.
 // Alinhado ao padrão do analisar-ia.ts: retry, thought filtering, jsonResponse, safety BLOCK_ONLY_HIGH.
 
+import { GoogleGenAI } from '@google/genai';
+
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
 interface Env {
@@ -70,80 +72,60 @@ Regras de Extração e Conversão:
 5. Ignore Tesouro Selic e Tesouro Prefixado. Extraia apenas Tesouro IPCA+.
 6. Não retorne markdown, crases ou explicações. Apenas o array JSON.`
 
-  // Gemini 3 Pro Preview — modelo com suporte a visão multimodal + thinking
-  // Modelo definido pelo usuário: gemini-3.1-pro-preview
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${apiKey}`
+  const ai = new GoogleGenAI({ apiKey });
+  const modelName = 'gemini-3.1-pro-preview';
 
-  const geminiBody = {
-    system_instruction: {
-      parts: [{ text: systemInstruction }],
-    },
-    contents: [{
-      role: 'user',
-      parts: [
-        {
-          inlineData: {
-            data: payload.imageBase64,
-            mimeType: payload.mimeType,
-          },
-        },
-        { text: 'Extraia os dados estruturados deste arquivo (imagem ou PDF).' },
-      ],
-    }],
-    generationConfig: {
-      temperature: 0.1,
-      responseMimeType: 'application/json',
-      thinkingConfig: {
-        thinkingLevel: 'HIGH',
-      },
-    },
-    safetySettings: [
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
-      { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_ONLY_HIGH' },
-    ],
-  }
+  const safetySettings = [
+    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
+    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' }
+  ];
 
-  // Retry: 1 tentativa extra em caso de falha transitória (padrão analisar-ia.ts)
-  let geminiResponse!: Response
+  let rawText = '';
   for (let tentativa = 0; tentativa < 2; tentativa++) {
     try {
-      geminiResponse = await fetch(geminiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(geminiBody),
-      })
-      if (geminiResponse.ok) break
-      if (tentativa === 0) await new Promise(r => setTimeout(r, 800))
-    } catch {
-      if (tentativa === 1) return jsonResponse({ ok: false, error: 'Falha de rede ao contactar a API Gemini.' }, 502)
-      await new Promise(r => setTimeout(r, 800))
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: [
+          {
+            inlineData: {
+              data: payload.imageBase64,
+              mimeType: payload.mimeType,
+            },
+          },
+          'Extraia os dados estruturados deste arquivo (imagem ou PDF).'
+        ],
+        config: {
+          systemInstruction: systemInstruction,
+          responseMimeType: 'application/json',
+          temperature: 0.1,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          thinkingConfig: { thinkingLevel: 'HIGH' } as any,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          safetySettings: safetySettings as any,
+        }
+      });
+      
+      if (response.text) {
+        rawText = response.text;
+        break;
+      } else {
+        throw new Error('Gemini retornou resposta vazia ou bloqueada pelos filtros de segurança.');
+      }
+    } catch (error) {
+      if (tentativa === 1) {
+        return jsonResponse(
+          { ok: false, error: `Falha na requisição AI Gemini: ${error instanceof Error ? error.message : 'Erro desconhecido'}` },
+          502
+        );
+      }
+      await new Promise(r => setTimeout(r, 800));
     }
   }
 
-  if (!geminiResponse.ok) {
-    const errorText = await geminiResponse.text().catch(() => '')
-    return jsonResponse(
-      { ok: false, error: `Gemini retornou erro ${geminiResponse.status}: ${errorText.slice(0, 400)}` },
-      502,
-    )
-  }
-
-  // Extrai texto da resposta, filtrando thought parts (padrão analisar-ia.ts)
-  const geminiData = await geminiResponse.json() as {
-    candidates?: Array<{
-      content?: { parts?: Array<{ text?: string; thought?: boolean }> }
-    }>
-  }
-
-  const parts = geminiData?.candidates?.[0]?.content?.parts ?? []
-  const visibleParts = parts.filter(p => !p.thought && p.text)
-  const rawText = visibleParts.map(p => p.text).join('\n')
-
   if (!rawText) {
-    return jsonResponse({ ok: false, error: 'Gemini retornou resposta vazia ou bloqueada pelos filtros de segurança.' }, 502)
+    return jsonResponse({ ok: false, error: 'Gemini retornou resposta vazia ou bloqueada pelos filtros de segurança.' }, 502);
   }
 
   // Parse do array JSON estruturado retornado pelo modelo

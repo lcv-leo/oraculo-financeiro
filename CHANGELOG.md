@@ -1,5 +1,12 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.08.05] - 2026-04-02
+### Refatoração Estrutural
+- **Conformidade de Segurança (Linting)**: Adicionadas verificações rigorosas no backend (`analisar-ia.ts` e `tesouro-ipca-vision.ts`) para tratamento explícito de exceções utilizando `error instanceof Error` eliminando todos os casos residuais de `no-explicit-any` detectados pelo ESLint na operação via novo SDK `@google/genai`.
+
+### Controle de versão
+- `oraculo-financeiro`: APP v01.08.04 → APP v01.08.05
+
 ## [v01.08.04] - 2026-03-31
 ### Corrigido
 - **Compliance - docs legais locais em runtime**: o `LicencasModule` passou a carregar `LICENSE`, `NOTICE` e `THIRDPARTY` a partir de `public/legal/*` via `BASE_URL`, eliminando dependência de `raw.githubusercontent.com` no browser e removendo os 404 recorrentes em produção.

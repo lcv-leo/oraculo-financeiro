@@ -2,6 +2,8 @@
 // Versão: v01.01.00
 // Descrição: Upgrade Gemini API — modelo gemini-3.1-pro-preview (auto-atualiza), v1beta, thinkingLevel HIGH, safetySettings (BLOCK_NONE para conteúdo financeiro), retry com 1 tentativa extra. Prompt fiduciário preservado.
 
+import { GoogleGenAI } from '@google/genai';
+
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
 type D1Result<T = unknown> = { results?: T[] }
@@ -269,73 +271,52 @@ export const onRequestPost = async ({ env, request }: Context) => {
     ? buildPromptLciLca(payload as PayloadLciLca)
     : buildPromptTesouro(payload as PayloadTesouro)
 
-  // Alias "latest" aponta sempre para o Pro mais recente
-  // Ref: https://ai.google.dev/gemini-api/docs/models#latest
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${apiKey}`
+  const ai = new GoogleGenAI({ apiKey });
+  const modelName = 'gemini-3.1-pro-preview';
 
-  const geminiBody = {
-    system_instruction: {
-      parts: [{ text: SYSTEM_PROMPT }],
-    },
-    contents: [
-      {
-        role: 'user',
-        parts: [{ text: userPrompt }],
-      },
-    ],
-    generationConfig: {
-      responseMimeType: 'application/json',
-      temperature: 0.3,
-      thinkingConfig: {
-        thinkingLevel: "HIGH",
-      },
-    },
-    safetySettings: [
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
-      { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_ONLY_HIGH' },
-    ],
-  }
+  const safetySettings = [
+    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
+    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' }
+  ];
 
-  // Retry: 1 tentativa extra em caso de falha transitória
-  let geminiResponse!: Response
+  let rawText = '';
   for (let tentativa = 0; tentativa < 2; tentativa++) {
     try {
-      geminiResponse = await fetch(geminiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(geminiBody),
-      })
-      if (geminiResponse.ok) break
-      if (tentativa === 0) await new Promise(r => setTimeout(r, 800))
-    } catch {
-      if (tentativa === 1) return jsonResponse({ ok: false, error: 'Falha de rede ao contactar a API Gemini.' }, 502)
-      await new Promise(r => setTimeout(r, 800))
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: userPrompt,
+        config: {
+          systemInstruction: SYSTEM_PROMPT,
+          responseMimeType: 'application/json',
+          temperature: 0.3,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          thinkingConfig: { thinkingLevel: 'HIGH' } as any,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          safetySettings: safetySettings as any,
+        }
+      });
+      
+      if (response.text) {
+        rawText = response.text;
+        break;
+      } else {
+        throw new Error('Gemini retornou resposta vazia.');
+      }
+    } catch (error) {
+      if (tentativa === 1) {
+        return jsonResponse(
+          { ok: false, error: `Falha na requisição AI Gemini: ${error instanceof Error ? error.message : 'Erro desconhecido'}` },
+          502
+        );
+      }
+      await new Promise(r => setTimeout(r, 800));
     }
   }
 
-  if (!geminiResponse.ok) {
-    const errorText = await geminiResponse.text().catch(() => '')
-    return jsonResponse(
-      { ok: false, error: `Gemini retornou erro ${geminiResponse.status}: ${errorText.slice(0, 400)}` },
-      502,
-    )
-  }
-
-  // Extrai o texto da resposta do Gemini
-  const geminiData = await geminiResponse.json() as {
-    candidates?: Array<{
-      content?: { parts?: Array<{ text?: string, thought?: boolean }> }
-    }>
-  }
-
-  const parts = geminiData?.candidates?.[0]?.content?.parts ?? []
-  const visibleParts = parts.filter(p => !p.thought && p.text)
-  const rawText = visibleParts.map(p => p.text).join('\n')
   if (!rawText) {
-    return jsonResponse({ ok: false, error: 'Gemini retornou resposta vazia.' }, 502)
+    return jsonResponse({ ok: false, error: 'Gemini retornou resposta vazia.' }, 502);
   }
 
   // Parse do JSON estruturado retornado pelo modelo
