@@ -1,5 +1,9 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.08.06] - 2026-04-02
+### Controle de versão
+- `oraculo-financeiro`: APP v01.08.05 → APP v01.08.06
+
 ## [v01.08.05] - 2026-04-02
 ### Refatoração Estrutural
 - **Conformidade de Segurança (Linting)**: Adicionadas verificações rigorosas no backend (`analisar-ia.ts` e `tesouro-ipca-vision.ts`) para tratamento explícito de exceções utilizando `error instanceof Error` eliminando todos os casos residuais de `no-explicit-any` detectados pelo ESLint na operação via novo SDK `@google/genai`.
