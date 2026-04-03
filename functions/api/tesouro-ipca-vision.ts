@@ -72,7 +72,7 @@ Regras de Extração e Conversão:
 5. Ignore Tesouro Selic e Tesouro Prefixado. Extraia apenas Tesouro IPCA+.
 6. Não retorne markdown, crases ou explicações. Apenas o array JSON.`
 
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ baseUrl: 'https://gateway.ai.cloudflare.com/v1/d65b76a0e64c3791e932edd9163b1c71/workspace-gateway/google-ai-studio', apiKey });
   const modelName = 'gemini-3.1-pro-preview';
 
   const safetySettings = [

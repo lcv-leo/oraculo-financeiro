@@ -1,6 +1,15 @@
 # AI Memory Log - oraculo-financeiro
 
 
+
+## 2026-04-03 — Cloudflare Paid Scale Integration
+### Escopo
+Migração arquitetural unificada para aproveitamento da infraestrutura Cloudflare Paid. Implementação de **Smart Placement** transversal para redução de latência via proximidade física com o banco de dados (BIGDATA_DB). Adoção da diretiva `usage_model: unbound` para mitigar o `Error 1102` (CPU limit excess). Embutimento global do proxy **Cloudflare AI Gateway** sobrepondo o SDK nativo (`@google/genai`) e habilitando Caching, Rate limiting Nativo e Observabilidade Unificada, mantendo operação híbrida com os LLMs da rede.
+
+### Diretivas Respeitadas
+- Conformidade 100% com `wrangler.json`.
+- `tlsrpt-motor` e `cron-taxa-ipca` revalidados em infraestrutura moderna sem timeout.
+
 ## 2026-04-02 - Oráculo Financeiro v01.08.06 - Migração e Tratamento de Exceções SDK IA
 ### Corrigido
 - Implementado tratamento absoluto de exceções (
