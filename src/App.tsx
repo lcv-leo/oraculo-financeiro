@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 // Módulo: oraculo-financeiro/src/App.tsx
-// Versão: v01.08.00
+// Versão: v01.08.01
 // Descrição: Frontend do Oráculo Financeiro — análise LCI/LCA e Tesouro IPCA+ com IA Gemini.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
