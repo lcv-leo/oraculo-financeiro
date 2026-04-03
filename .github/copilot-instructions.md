@@ -1,5 +1,33 @@
+
+
+## 📋 DIRETIVAS DO PROJETO E REGRAS DE CÓDIGO
+# Regras
+- Use princípios de Clean Code.
+- Comente lógicas complexas.
+
+
+## 🧠 MEMÓRIA DE CONTEXTO ISOLADO (ORACULO-FINANCEIRO)
 # AI Memory Log - oraculo-financeiro
 
+
+
+## 2026-04-03 — Cloudflare Paid Scale Integration
+### Escopo
+Migração arquitetural unificada para aproveitamento da infraestrutura Cloudflare Paid. Implementação de **Smart Placement** transversal para redução de latência via proximidade física com o banco de dados (BIGDATA_DB). Adoção da diretiva `usage_model: unbound` para mitigar o `Error 1102` (CPU limit excess). Embutimento global do proxy **Cloudflare AI Gateway** sobrepondo o SDK nativo (`@google/genai`) e habilitando Caching, Rate limiting Nativo e Observabilidade Unificada, mantendo operação híbrida com os LLMs da rede.
+
+### Diretivas Respeitadas
+- Conformidade 100% com `wrangler.json`.
+- `tlsrpt-motor` e `cron-taxa-ipca` revalidados em infraestrutura moderna sem timeout.
+
+## 2026-04-02 - Oráculo Financeiro v01.08.06 - Migração e Tratamento de Exceções SDK IA
+### Corrigido
+- Implementado tratamento absoluto de exceções (
+o-explicit-any zero tolerância usando instanceof Error) nos backends Cloudflare Workers que comunicam com serviços de IA.
+- Migração completa para novo SDK oficial @google/genai apagando as chamadas legadas instáveis que eram dependentes da lib generative-ai.
+- Toda a governança de 'rate limit' local do oráculo foi removida e delegada ao Cloudflare WAF, limpando resquícios do nforceRateLimit.
+
+### Controle de versão
+- oraculo-financeiro: APP v01.08.05 -> APP v01.08.06
 ## 2026-03-28 — Admin-App v01.66.00 — Oráculo Rate Limit Controls
 ### Adicionado
 - **Oráculo — Rate Limit (paridade Astrólogo)**: controle completo de rate limit implementado para o módulo Oráculo Financeiro, cobrindo 4 rotas: `analisar-ia`, `enviar-email`, `contato`, `tesouro-ipca-vision`.
@@ -132,3 +160,20 @@
   - Extração literal validada de `dataCompra`, `valorInvestido` e `taxaContratada` com purga cirúrgica de marcação markdown.
 - **Frontend Dropzone**:
   - `App.tsx` abraçou os arrays de evento `onDragOver` e `onDrop` revelando um *backdrop filter* azul (identidade Visual Tiptap). O frontend auto-preenche e notifica sucesso com `pushNotification` sem violar requisições em lote desnecessárias ao banco de dados `BIGDATA_DB`.
+
+
+## 2026-04-03 — Enforcing Canonical Domain Security & TypeScript Audit
+### Escopo
+Implementação de bloqueio em Edge para impedir a exposição pública de roteamentos sob o domínio interno `*.pages.dev`. Aplicado redirect mandatório (301) para os domínios canônicos definidos (`lcv.app.br` e suas ramificações) em todos os apps com exceção dos puramente internos, protegendo infraestrutura e performance SEO. Também foram resolvidos erros de compilação (`Unexpected any`) e typings TypeScript do motor do editor Post no `admin-app` referentes a integração Word Mammoth, bem como a injeção Cloudflare `PagesFunction` em `mainsite-frontend`.
+
+### Controle de versão
+- `admin-app`: APP v01.77.31 → APP v01.77.32
+- `oraculo-financeiro`: APP v01.08.00 → APP v01.08.01
+- `astrologo-app`: APP v02.17.02 → APP v02.17.03
+- `mainsite-frontend`: APP v03.04.14 → APP v03.04.15
+- `calculadora-app`: middleware deployment, versioning handled internally
+- `apphub`: middleware deployment, versioning handled internally
+- `adminapps`: middleware deployment, versioning handled internally
+
+
+> **DIRETIVA DE SEGURANÇA:** Ao sugerir código ou responder perguntas, leia rigorosamente o contexto e as memórias históricas acima para não divergir das decisões já tomadas pelo outro agente.

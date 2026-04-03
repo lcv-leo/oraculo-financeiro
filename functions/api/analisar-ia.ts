@@ -20,6 +20,7 @@ interface D1DatabaseLike {
 interface Env {
   BIGDATA_DB: D1DatabaseLike
   GEMINI_API_KEY: string
+  CF_AI_GATEWAY: string
 }
 
 interface Context {
@@ -271,7 +272,12 @@ export const onRequestPost = async ({ env, request }: Context) => {
     ? buildPromptLciLca(payload as PayloadLciLca)
     : buildPromptTesouro(payload as PayloadTesouro)
 
-  const ai = new GoogleGenAI({ baseUrl: 'https://gateway.ai.cloudflare.com/v1/d65b76a0e64c3791e932edd9163b1c71/workspace-gateway/google-ai-studio', apiKey });
+  const ai = new GoogleGenAI({ 
+    apiKey,
+    httpOptions: {
+      baseUrl: env.CF_AI_GATEWAY || 'https://gateway.ai.cloudflare.com/v1/d65b76a0e64c3791e932edd9163b1c71/workspace-gateway/google-ai-studio', 
+    }
+  });
   const modelName = 'gemini-3.1-pro-preview';
 
   const safetySettings = [
@@ -308,7 +314,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
       if (tentativa === 1) {
         return jsonResponse(
           { ok: false, error: `Falha na requisição AI Gemini: ${error instanceof Error ? error.message : 'Erro desconhecido'}` },
-          502
+          500
         );
       }
       await new Promise(r => setTimeout(r, 800));
@@ -316,7 +322,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
   }
 
   if (!rawText) {
-    return jsonResponse({ ok: false, error: 'Gemini retornou resposta vazia.' }, 502);
+    return jsonResponse({ ok: false, error: 'Gemini retornou resposta vazia.' }, 500);
   }
 
   // Parse do JSON estruturado retornado pelo modelo
@@ -324,7 +330,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
   try {
     analise = JSON.parse(rawText) as AnaliseIA
   } catch {
-    return jsonResponse({ ok: false, error: 'Resposta do Gemini não é JSON válido.', raw: rawText.slice(0, 500) }, 502)
+    return jsonResponse({ ok: false, error: 'Resposta do Gemini não é JSON válido.', raw: rawText.slice(0, 500) }, 500)
   }
 
   // Persiste no D1 para auditoria histórica
