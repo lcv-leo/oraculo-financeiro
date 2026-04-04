@@ -11,17 +11,5 @@
   ],
   "placement": {
     "mode": "smart"
-  },
-  "secrets_store_secrets": [
-    {
-      "binding": "RESEND_API_KEY",
-      "store_id": "df90c0935ba1460899c3c2c457548a90",
-      "secret_name": "resend-appkey"
-    },
-    {
-      "binding": "GEMINI_API_KEY",
-      "store_id": "df90c0935ba1460899c3c2c457548a90",
-      "secret_name": "gemini-api-key"
-    }
-  ]
+  }
 }
