@@ -20,7 +20,6 @@ interface D1DatabaseLike {
 interface Env {
   BIGDATA_DB: D1DatabaseLike
   GEMINI_API_KEY: string
-  CF_AI_GATEWAY: string
 }
 
 interface Context {
@@ -273,10 +272,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
     : buildPromptTesouro(payload as PayloadTesouro)
 
   const ai = new GoogleGenAI({ 
-    apiKey,
-    httpOptions: {
-      baseUrl: env.CF_AI_GATEWAY || 'https://gateway.ai.cloudflare.com/v1/d65b76a0e64c3791e932edd9163b1c71/workspace-gateway/google-ai-studio', 
-    }
+    apiKey
   });
   const modelName = 'gemini-3.1-pro-preview';
 
