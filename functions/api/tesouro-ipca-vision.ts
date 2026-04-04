@@ -21,7 +21,7 @@ interface Context {
 const GEMINI_CONFIG = {
   model: 'gemini-3.1-pro-preview',
   maxTokensInput: 120000,
-  maxOutputTokens: 2048,
+  maxOutputTokens: 8192,
   temperature: 0.1
 };
 
@@ -195,3 +195,4 @@ Regras de Extração e Conversão:
 
   return jsonResponse({ ok: true, data: extractedData })
 }
+

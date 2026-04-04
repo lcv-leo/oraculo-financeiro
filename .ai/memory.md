@@ -1,5 +1,13 @@
-# AI Memory Log - oraculo-financeiro
+# AI Memory Log - Oraculo-Financeiro
 
+## 2026-04-04 - Tokens Maximizados para Inferência Avançada
+### Scope
+Remoção do teto impeditivo de resposta para Thinking Models nativos nas inferências IPCA e Análise.
+### Resolved
+- **Tokens Ampliados**: Limites de output expandidos previnindo falhas de truncamento (\SyntaxError\) após 2048 tokens por causa do tempo gasto no think phase.
+
+### Controle de versão
+- oraculo-financeiro: APP v01.08.07 -> APP v01.08.08
 
 
 ## 2026-04-03 — Cloudflare Paid Scale Integration
@@ -165,3 +173,4 @@ Implementação de bloqueio em Edge para impedir a exposição pública de rotea
 - `calculadora-app`: middleware deployment, versioning handled internally
 - `apphub`: middleware deployment, versioning handled internally
 - `adminapps`: middleware deployment, versioning handled internally
+

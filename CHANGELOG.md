@@ -223,3 +223,4 @@
 ### Histórico
 - Versão inicial com análise LCI/LCA e Tesouro IPCA+ via IA Gemini
 
+

@@ -243,7 +243,7 @@ Se há lotes com perfis muito diferentes, destaque o mais relevante.`
 const GEMINI_CONFIG = {
   model: 'gemini-3.1-pro-preview',
   maxTokensInput: 120000,
-  maxOutputTokens: 2048,
+  maxOutputTokens: 8192,
   temperature: 0.3
 };
 
@@ -393,3 +393,4 @@ export const onRequestPost = async ({ env, request }: Context) => {
 
   return jsonResponse({ ok: true, analise })
 }
+
