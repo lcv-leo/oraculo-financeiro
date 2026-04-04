@@ -267,7 +267,8 @@ function jsonResponse(body: unknown, status = 200) {
 // ─── HANDLER PRINCIPAL ────────────────────────────────────────────────────────
 
 export const onRequestPost = async ({ env, request }: Context) => {
-  const apiKey = env?.GEMINI_API_KEY
+  const envRec = env as unknown as Record<string, unknown>
+  const apiKey = (env?.GEMINI_API_KEY || envRec['GEMINI_APP_KEY'] || envRec['gemini-api-key'] || envRec['gemini-app-key']) as string
   if (!apiKey) {
     return jsonResponse({ ok: false, error: 'GEMINI_API_KEY não configurada no ambiente Cloudflare Pages.' }, 503)
   }
