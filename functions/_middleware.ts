@@ -1,7 +1,5 @@
 const SECRET_KEYS = [
-  'CLOUDFLARE_PW', 'GEMINI_API_KEY', 'RESEND_API_KEY', 'RESEND_APPKEY',
-  'SUMUP_API_KEY_PRIVATE', 'SUMUP_MERCHANT_CODE', 'MP_ACCESS_TOKEN',
-  'MERCADO_PAGO_WEBHOOK_SECRET', 'PIX_KEY', 'PIX_NAME', 'PIX_CITY'
+  'GEMINI_API_KEY'
 ] as const;
 
 export async function onRequest(context: { request: Request; env: Record<string, unknown>; next: () => Promise<Response> }) {
