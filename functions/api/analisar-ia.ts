@@ -288,9 +288,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
     ? buildPromptLciLca(payload as PayloadLciLca)
     : buildPromptTesouro(payload as PayloadTesouro)
 
-  const ai = new GoogleGenAI({ 
-    apiKey
-  });
+  const ai = new GoogleGenAI({ apiKey });
   const modelName = GEMINI_CONFIG.model;
 
   const safetySettings = [
