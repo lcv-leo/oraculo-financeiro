@@ -240,6 +240,23 @@ Se há lotes com perfis muito diferentes, destaque o mais relevante.`
 
 // ─── UTILIDADES ───────────────────────────────────────────────────────────────
 
+const GEMINI_CONFIG = {
+  model: 'gemini-3.1-pro-preview',
+  maxTokensInput: 120000,
+  maxOutputTokens: 2048,
+  temperature: 0.3
+};
+
+function structuredLog(level: string, message: string, context = {}) {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    level: level.toUpperCase(),
+    message,
+    ...context
+  };
+  console.log(JSON.stringify(logEntry));
+}
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -274,16 +291,29 @@ export const onRequestPost = async ({ env, request }: Context) => {
   const ai = new GoogleGenAI({ 
     apiKey
   });
-  const modelName = 'gemini-3.1-pro-preview';
+  const modelName = GEMINI_CONFIG.model;
 
   const safetySettings = [
     { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
     { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
     { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
-    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' }
+    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+    { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_ONLY_HIGH' }
   ];
 
+  try {
+    const countRes = await ai.models.countTokens({ model: modelName, contents: userPrompt });
+    const inputTokens = countRes.totalTokens || 0;
+    if (inputTokens > GEMINI_CONFIG.maxTokensInput) {
+      structuredLog('error', 'Token limit exceeded', { endpoint: 'analisar-ia', tokens: inputTokens });
+      return jsonResponse({ ok: false, error: `Contexto muito longo: ${inputTokens} tokens.` }, 413);
+    }
+  } catch (countError) {
+    structuredLog('warn', 'Token count failed', { endpoint: 'analisar-ia', error: String(countError) });
+  }
+
   let rawText = '';
+  let usageDetails = {};
   for (let tentativa = 0; tentativa < 2; tentativa++) {
     try {
       const response = await ai.models.generateContent({
@@ -292,9 +322,10 @@ export const onRequestPost = async ({ env, request }: Context) => {
         config: {
           systemInstruction: SYSTEM_PROMPT,
           responseMimeType: 'application/json',
-          temperature: 0.3,
+          temperature: GEMINI_CONFIG.temperature,
+          maxOutputTokens: GEMINI_CONFIG.maxOutputTokens,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          thinkingConfig: { thinkingLevel: 'HIGH' } as any,
+          thinkingConfig: { thinkingBudgetTokens: 1024 } as any,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           safetySettings: safetySettings as any,
         }
@@ -302,14 +333,23 @@ export const onRequestPost = async ({ env, request }: Context) => {
       
       if (response.text) {
         rawText = response.text;
+        const metadata = response.usageMetadata || {};
+        usageDetails = {
+           promptTokens: metadata.promptTokenCount || 0,
+           outputTokens: metadata.candidatesTokenCount || 0,
+           cachedTokens: metadata.cachedContentTokenCount || 0
+        };
+        structuredLog('info', 'Geracao Gemini concluida', { endpoint: 'analisar-ia', attempt: tentativa + 1, usage: usageDetails });
         break;
       } else {
         throw new Error('Gemini retornou resposta vazia.');
       }
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      structuredLog('warn', 'Falha ao requisitar Gemini', { endpoint: 'analisar-ia', attempt: tentativa + 1, error: errMsg });
       if (tentativa === 1) {
         return jsonResponse(
-          { ok: false, error: `Falha na requisição AI Gemini: ${error instanceof Error ? error.message : 'Erro desconhecido'}` },
+          { ok: false, error: `Falha na requisição AI Gemini: ${errMsg}` },
           500
         );
       }
@@ -318,6 +358,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
   }
 
   if (!rawText) {
+    structuredLog('error', 'Gemini retornou vazio apos retentativas', { endpoint: 'analisar-ia' });
     return jsonResponse({ ok: false, error: 'Gemini retornou resposta vazia.' }, 500);
   }
 

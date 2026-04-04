@@ -1,8 +1,20 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.08.07] - 2026-04-04
+### Resolvido
+- **Modernização GenAI**: As APIs nalisar-ia.ts e 	esouro-ipca-vision.ts implementam as totais capacidades das '10 features' (structuredLog, contagem de tokens pré/pós e metadados de cobrança).
+- **Direto ao Google**: Removidos resquícios do Cloudflare Gateway proxy mitigando timeout 524 fantasma na resolução do IPCA Vision.
+- **Cloudflare Environment**: Sincronização do binding `RESEND_API_KEY` mapeado ativamente ao Secrets Store nativo.
+
 ## [v01.08.06] - 2026-04-02
 ### Controle de versão
 - `oraculo-financeiro`: APP v01.08.05 → APP v01.08.06
+
+## [v01.08.07] - 2026-04-04
+### Resolvido
+- **Modernização GenAI**: As APIs nalisar-ia.ts e 	esouro-ipca-vision.ts implementam as totais capacidades das '10 features' (structuredLog, contagem de tokens pré/pós e metadados de cobrança).
+- **Direto ao Google**: Removidos resquícios do Cloudflare Gateway proxy mitigando timeout 524 fantasma na resolução do IPCA Vision.
+- **Cloudflare Environment**: Sincronização do binding `RESEND_API_KEY` mapeado ativamente ao Secrets Store nativo.
 
 ## [v01.08.05] - 2026-04-02
 ### Refatoração Estrutural
@@ -11,6 +23,12 @@
 ### Controle de versão
 - `oraculo-financeiro`: APP v01.08.04 → APP v01.08.05
 
+## [v01.08.07] - 2026-04-04
+### Resolvido
+- **Modernização GenAI**: As APIs nalisar-ia.ts e 	esouro-ipca-vision.ts implementam as totais capacidades das '10 features' (structuredLog, contagem de tokens pré/pós e metadados de cobrança).
+- **Direto ao Google**: Removidos resquícios do Cloudflare Gateway proxy mitigando timeout 524 fantasma na resolução do IPCA Vision.
+- **Cloudflare Environment**: Sincronização do binding `RESEND_API_KEY` mapeado ativamente ao Secrets Store nativo.
+
 ## [v01.08.04] - 2026-03-31
 ### Corrigido
 - **Compliance - docs legais locais em runtime**: o `LicencasModule` passou a carregar `LICENSE`, `NOTICE` e `THIRDPARTY` a partir de `public/legal/*` via `BASE_URL`, eliminando dependência de `raw.githubusercontent.com` no browser e removendo os 404 recorrentes em produção.
@@ -18,12 +36,24 @@
 ### Controle de versão
 - `oraculo-financeiro`: APP v01.08.03 → APP v01.08.04
 
+## [v01.08.07] - 2026-04-04
+### Resolvido
+- **Modernização GenAI**: As APIs nalisar-ia.ts e 	esouro-ipca-vision.ts implementam as totais capacidades das '10 features' (structuredLog, contagem de tokens pré/pós e metadados de cobrança).
+- **Direto ao Google**: Removidos resquícios do Cloudflare Gateway proxy mitigando timeout 524 fantasma na resolução do IPCA Vision.
+- **Cloudflare Environment**: Sincronização do binding `RESEND_API_KEY` mapeado ativamente ao Secrets Store nativo.
+
 ## [v01.08.03] - 2026-03-31
 ### Adicionado
 - **Governança de Licenciamento (GNU AGPLv3)**: Inserção do `LicencasModule` e `ComplianceBanner` no frontend para fechamento do SaaS Loophole com conformidade total.
 
 ### Controle de versão
 - `oraculo-financeiro`: APP v01.08.02 -> APP v01.08.03
+
+## [v01.08.07] - 2026-04-04
+### Resolvido
+- **Modernização GenAI**: As APIs nalisar-ia.ts e 	esouro-ipca-vision.ts implementam as totais capacidades das '10 features' (structuredLog, contagem de tokens pré/pós e metadados de cobrança).
+- **Direto ao Google**: Removidos resquícios do Cloudflare Gateway proxy mitigando timeout 524 fantasma na resolução do IPCA Vision.
+- **Cloudflare Environment**: Sincronização do binding `RESEND_API_KEY` mapeado ativamente ao Secrets Store nativo.
 
 ## [v01.08.02] - 2026-03-31
 ### Corrigido
@@ -192,3 +222,4 @@
 ## [v01.00.00] — Anterior
 ### Histórico
 - Versão inicial com análise LCI/LCA e Tesouro IPCA+ via IA Gemini
+

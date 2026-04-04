@@ -18,6 +18,23 @@ interface Context {
 
 // ─── UTILIDADES ───────────────────────────────────────────────────────────────
 
+const GEMINI_CONFIG = {
+  model: 'gemini-3.1-pro-preview',
+  maxTokensInput: 120000,
+  maxOutputTokens: 2048,
+  temperature: 0.1
+};
+
+function structuredLog(level: string, message: string, context = {}) {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    level: level.toUpperCase(),
+    message,
+    ...context
+  };
+  console.log(JSON.stringify(logEntry));
+}
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -72,17 +89,40 @@ Regras de Extração e Conversão:
 5. Ignore Tesouro Selic e Tesouro Prefixado. Extraia apenas Tesouro IPCA+.
 6. Não retorne markdown, crases ou explicações. Apenas o array JSON.`
 
-  const ai = new GoogleGenAI({ baseUrl: 'https://gateway.ai.cloudflare.com/v1/d65b76a0e64c3791e932edd9163b1c71/workspace-gateway/google-ai-studio', apiKey });
-  const modelName = 'gemini-3.1-pro-preview';
+  const ai = new GoogleGenAI({ apiKey });
+  const modelName = GEMINI_CONFIG.model;
 
   const safetySettings = [
     { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
     { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
     { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
-    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' }
+    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+    { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_ONLY_HIGH' }
   ];
 
+  try {
+    const countRes = await ai.models.countTokens({ 
+      model: modelName, 
+      contents: [{
+            inlineData: {
+              data: payload.imageBase64,
+              mimeType: payload.mimeType,
+            },
+          },
+          'Extraia os dados estruturados deste arquivo (imagem ou PDF).'
+      ]
+    });
+    const inputTokens = countRes.totalTokens || 0;
+    if (inputTokens > GEMINI_CONFIG.maxTokensInput) {
+      structuredLog('error', 'Token limit exceeded in Vision', { endpoint: 'tesouro-ipca-vision', tokens: inputTokens });
+      return jsonResponse({ ok: false, error: `Documento muito grande para análise de ML: ${inputTokens} tokens.` }, 413);
+    }
+  } catch (countError) {
+    structuredLog('warn', 'Token count failed in Vision', { endpoint: 'tesouro-ipca-vision', error: String(countError) });
+  }
+
   let rawText = '';
+  let usageDetails = {};
   for (let tentativa = 0; tentativa < 2; tentativa++) {
     try {
       const response = await ai.models.generateContent({
@@ -99,9 +139,10 @@ Regras de Extração e Conversão:
         config: {
           systemInstruction: systemInstruction,
           responseMimeType: 'application/json',
-          temperature: 0.1,
+          temperature: GEMINI_CONFIG.temperature,
+          maxOutputTokens: GEMINI_CONFIG.maxOutputTokens,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          thinkingConfig: { thinkingLevel: 'HIGH' } as any,
+          thinkingConfig: { thinkingBudgetTokens: 1024 } as any,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           safetySettings: safetySettings as any,
         }
@@ -109,15 +150,24 @@ Regras de Extração e Conversão:
       
       if (response.text) {
         rawText = response.text;
+        const metadata = response.usageMetadata || {};
+        usageDetails = {
+           promptTokens: metadata.promptTokenCount || 0,
+           outputTokens: metadata.candidatesTokenCount || 0,
+           cachedTokens: metadata.cachedContentTokenCount || 0
+        };
+        structuredLog('info', 'Geracao Gemini concluida', { endpoint: 'tesouro-ipca-vision', attempt: tentativa + 1, usage: usageDetails });
         break;
       } else {
         throw new Error('Gemini retornou resposta vazia ou bloqueada pelos filtros de segurança.');
       }
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      structuredLog('warn', 'Falha ao requisitar Gemini (Vision)', { endpoint: 'tesouro-ipca-vision', attempt: tentativa + 1, error: errMsg });
       if (tentativa === 1) {
         return jsonResponse(
-          { ok: false, error: `Falha na requisição AI Gemini: ${error instanceof Error ? error.message : 'Erro desconhecido'}` },
-          502
+          { ok: false, error: `Falha na requisição AI Gemini: ${errMsg}` },
+          500
         );
       }
       await new Promise(r => setTimeout(r, 800));
@@ -125,7 +175,8 @@ Regras de Extração e Conversão:
   }
 
   if (!rawText) {
-    return jsonResponse({ ok: false, error: 'Gemini retornou resposta vazia ou bloqueada pelos filtros de segurança.' }, 502);
+    structuredLog('error', 'Gemini retornou vazio em extacao OCR', { endpoint: 'tesouro-ipca-vision' });
+    return jsonResponse({ ok: false, error: 'Gemini retornou resposta vazia ou bloqueada pelos filtros de segurança.' }, 500);
   }
 
   // Parse do array JSON estruturado retornado pelo modelo
@@ -136,8 +187,9 @@ Regras de Extração e Conversão:
       throw new Error('A IA não retornou um array JSON.')
     }
     extractedData = parsed
-  } catch {
-    return jsonResponse({ ok: false, error: 'A IA não retornou um formato JSON válido.', raw: rawText.slice(0, 500) }, 502)
+  } catch (error) {
+    structuredLog('error', 'Impossivel fazer parse da IA (Vision)', { endpoint: 'tesouro-ipca-vision', response: String(error) });
+    return jsonResponse({ ok: false, error: 'A IA não retornou um formato JSON válido.', raw: rawText.slice(0, 500) }, 500)
   }
 
   return jsonResponse({ ok: true, data: extractedData })
