@@ -1,5 +1,12 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.08.08] - 2026-04-06
+### Alterado
+- **Observability 100% (cron-taxa-ipca)**: `head_sampling_rate: 1`, `invocation_logs: true` e `enabled: true` ativados no `wrangler.json` do worker cron-taxa-ipca.
+
+### Controle de versão
+- `oraculo-financeiro`: APP v01.08.07 → APP v01.08.08
+
 ## [v01.08.07] - 2026-04-04
 ### Resolvido
 - **Modernização GenAI**: As APIs nalisar-ia.ts e 	esouro-ipca-vision.ts implementam as totais capacidades das '10 features' (structuredLog, contagem de tokens pré/pós e metadados de cobrança).
