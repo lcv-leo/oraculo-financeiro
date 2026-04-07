@@ -1,8 +1,17 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.08.09] - 2026-04-06
+### Adicionado
+- **Cross-Service AI Telemetry**: Implementação de `logAiUsage` em `analisar-ia.ts` e `tesouro-ipca-vision.ts` para registro de tokens, latência e status no `ai_usage_logs` (D1).
+### Alterado
+- **Worker Rename**: `cron-taxa-ipca` renomeado para `taxaipca-motor` em wrangler.json, index.ts, deploy.yml e memórias AI.
+- **Compatibility Date**: Todos os `wrangler.json` atualizados para `2026-04-06`.
+### Controle de versão
+- `oraculo-financeiro`: APP v01.08.08 → APP v01.08.09
+
 ## [v01.08.08] - 2026-04-06
 ### Alterado
-- **Observability 100% (cron-taxa-ipca)**: `head_sampling_rate: 1`, `invocation_logs: true` e `enabled: true` ativados no `wrangler.json` do worker cron-taxa-ipca.
+- **Observability 100% (taxaipca-motor)**: `head_sampling_rate: 1`, `invocation_logs: true` e `enabled: true` ativados no `wrangler.json` do worker taxaipca-motor.
 
 ### Controle de versão
 - `oraculo-financeiro`: APP v01.08.07 → APP v01.08.08

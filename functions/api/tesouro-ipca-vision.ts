@@ -7,8 +7,13 @@ import { GoogleGenAI } from '@google/genai';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
+interface D1DatabaseLike {
+  prepare: (query: string) => { bind(...args: unknown[]): { run: () => Promise<unknown> }; all: () => Promise<unknown> }
+}
+
 interface Env {
   GEMINI_API_KEY: string
+  BIGDATA_DB?: D1DatabaseLike
 }
 
 interface Context {
@@ -40,6 +45,37 @@ function jsonResponse(body: unknown, status = 200) {
     status,
     headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
   })
+}
+
+// ── Telemetria: registra uso de AI no BIGDATA_DB ──
+function logAiUsage(
+  db: D1DatabaseLike | undefined,
+  entry: { module: string; model: string; input_tokens: number; output_tokens: number; latency_ms: number; status: string; error_detail?: string },
+) {
+  if (!db || typeof db.prepare !== 'function') return;
+  (async () => {
+    try {
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS ai_usage_logs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+          module TEXT NOT NULL, model TEXT NOT NULL, input_tokens INTEGER DEFAULT 0,
+          output_tokens INTEGER DEFAULT 0, latency_ms INTEGER DEFAULT 0,
+          status TEXT DEFAULT 'ok', error_detail TEXT
+        )
+      `).all();
+      await db.prepare(`
+        INSERT INTO ai_usage_logs (module, model, input_tokens, output_tokens, latency_ms, status, error_detail)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        entry.module, entry.model,
+        entry.input_tokens, entry.output_tokens,
+        entry.latency_ms, entry.status,
+        entry.error_detail || null,
+      ).run();
+    } catch (err) {
+      console.warn('[telemetry] ai_usage_logs INSERT failed:', err instanceof Error ? err.message : err);
+    }
+  })();
 }
 
 // ─── HANDLER PRINCIPAL ────────────────────────────────────────────────────────
@@ -101,6 +137,7 @@ Regras de Extração e Conversão:
     { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_ONLY_HIGH' }
   ];
 
+  const _telStart = Date.now();
   try {
     const countRes = await ai.models.countTokens({ 
       model: modelName, 
@@ -166,6 +203,7 @@ Regras de Extração e Conversão:
       const errMsg = error instanceof Error ? error.message : String(error);
       structuredLog('warn', 'Falha ao requisitar Gemini (Vision)', { endpoint: 'tesouro-ipca-vision', attempt: tentativa + 1, error: errMsg });
       if (tentativa === 1) {
+        void logAiUsage(env?.BIGDATA_DB, { module: 'oraculo-vision-ocr', model: modelName, input_tokens: 0, output_tokens: 0, latency_ms: Date.now() - _telStart, status: 'error', error_detail: errMsg.slice(0, 200) });
         return jsonResponse(
           { ok: false, error: `Falha na requisição AI Gemini: ${errMsg}` },
           500
@@ -177,8 +215,17 @@ Regras de Extração e Conversão:
 
   if (!rawText) {
     structuredLog('error', 'Gemini retornou vazio em extacao OCR', { endpoint: 'tesouro-ipca-vision' });
+    void logAiUsage(env?.BIGDATA_DB, { module: 'oraculo-vision-ocr', model: modelName, input_tokens: 0, output_tokens: 0, latency_ms: Date.now() - _telStart, status: 'error', error_detail: 'Empty OCR response' });
     return jsonResponse({ ok: false, error: 'Gemini retornou resposta vazia ou bloqueada pelos filtros de segurança.' }, 500);
   }
+
+  // Telemetria de sucesso
+  void logAiUsage(env?.BIGDATA_DB, {
+    module: 'oraculo-vision-ocr', model: modelName,
+    input_tokens: (usageDetails as { promptTokens?: number }).promptTokens || 0,
+    output_tokens: (usageDetails as { outputTokens?: number }).outputTokens || 0,
+    latency_ms: Date.now() - _telStart, status: 'ok'
+  });
 
   // Parse do array JSON estruturado retornado pelo modelo
   let extractedData: unknown[]
