@@ -1,5 +1,11 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.08.10] - 2026-04-07
+### Segurança
+- **Vite 8.0.3 → 8.0.7**: Correção de 3 CVEs de severidade alta/média.
+
+### Controle de versão
+- `oraculo-financeiro`: APP v01.08.09 → APP v01.08.10
 ## [v01.08.09] - 2026-04-06
 ### Adicionado
 - **Cross-Service AI Telemetry**: Implementação de `logAiUsage` em `analisar-ia.ts` e `tesouro-ipca-vision.ts` para registro de tokens, latência e status no `ai_usage_logs` (D1).
