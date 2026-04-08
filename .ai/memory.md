@@ -1,5 +1,9 @@
 # AI Memory Log - Oraculo-Financeiro
 
+## 2026-04-08 — GitHub Actions Purge & Dependabot Standardization
+### Escopo
+Auditoria completa de CI/CD para eliminação de "ghost runs" em toda a rede de repositórios do workspace, juntamente com a universalização da configuração do Dependabot ajustada às necessidades de empacotamento locais para mitigar tráfego e limites no API.
+
 ## 2026-04-04 - Tokens Maximizados para Inferência Avançada
 ### Scope
 Remoção do teto impeditivo de resposta para Thinking Models nativos nas inferências IPCA e Análise.
@@ -173,4 +177,5 @@ Implementação de bloqueio em Edge para impedir a exposição pública de rotea
 - `calculadora-app`: middleware deployment, versioning handled internally
 - `apphub`: middleware deployment, versioning handled internally
 - `adminapps`: middleware deployment, versioning handled internally
+
 
