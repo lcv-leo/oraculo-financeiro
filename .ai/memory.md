@@ -1,5 +1,14 @@
 # AI Memory Log - Oraculo-Financeiro
 
+## 2026-04-08 — Tech Upgrade: ESLint 10
+### Escopo
+Migração ESLint 9→10 finalizada.
+### Feito
+- **ESLint 10.2.0**: Upgrade + `.npmrc` para peer dep compatibility.
+- Lint clean (0 errors).
+### Versão
+- APP v01.08.10 → APP v01.08.11
+
 ## 2026-04-08 — GitHub Actions Purge & Dependabot Standardization
 ### Escopo
 Auditoria completa de CI/CD para eliminação de "ghost runs" em toda a rede de repositórios do workspace, juntamente com a universalização da configuração do Dependabot ajustada às necessidades de empacotamento locais para mitigar tráfego e limites no API.

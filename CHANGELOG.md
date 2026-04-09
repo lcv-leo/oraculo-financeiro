@@ -1,5 +1,13 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.08.11] - 2026-04-08
+### Atualização Tecnológica
+- **ESLint 9 → 10**: Migração para `eslint@10.2.0` e `@eslint/js@10.0.1`.
+- **`.npmrc`**: Criado com `legacy-peer-deps=true` para resolver conflito `eslint-plugin-react-hooks@7` ↔ ESLint 10.
+
+### Controle de versão
+- `oraculo-financeiro`: APP v01.08.10 → APP v01.08.11
+
 ## [v01.08.10] - 2026-04-07
 ### Segurança
 - **Vite 8.0.3 → 8.0.7**: Correção de 3 CVEs de severidade alta/média.
