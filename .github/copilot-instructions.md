@@ -160,7 +160,7 @@ o-explicit-any zero tolerância usando instanceof Error) nos backends Cloudflare
   - Extração literal validada de `dataCompra`, `valorInvestido` e `taxaContratada` com purga cirúrgica de marcação markdown.
 - **Frontend Dropzone**:
   - `App.tsx` abraçou os arrays de evento `onDragOver` e `onDrop` revelando um *backdrop filter* azul (identidade Visual Tiptap). O frontend auto-preenche e notifica sucesso com `pushNotification` sem violar requisições em lote desnecessárias ao banco de dados `BIGDATA_DB`.
-
+
 
 ## 2026-04-03 — Enforcing Canonical Domain Security & TypeScript Audit
 ### Escopo
@@ -175,5 +175,15 @@ Implementação de bloqueio em Edge para impedir a exposição pública de rotea
 - `apphub`: middleware deployment, versioning handled internally
 - `adminapps`: middleware deployment, versioning handled internally
 
+
+
+## 🤖 Claude Code — Memória Sincronizada (2026-04-09)
+
+A memória persistente do **Claude Code** está em:
+`C:\Users\leona\.claude\projects\c--Users-leona-lcv-workspace\memory\`
+
+Arquivos: `MEMORY.md` (índice) · `project_workspace.md` · `version_control.md` · `infra_directives.md` · `app_memories_ref.md` · `ai_agents_files.md`
+
+**Diretiva:** Ao atualizar esta memória, atualizar também os arquivos correspondentes da memória do Claude Code para manter paridade entre Gemini, Copilot e Claude Code.
 
 > **DIRETIVA DE SEGURANÇA:** Ao sugerir código ou responder perguntas, leia rigorosamente o contexto e as memórias históricas acima para não divergir das decisões já tomadas pelo outro agente.
