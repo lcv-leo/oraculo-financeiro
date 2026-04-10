@@ -7,8 +7,29 @@
 
 
 ## 🧠 MEMÓRIA DE CONTEXTO ISOLADO (ORACULO-FINANCEIRO)
-# AI Memory Log - oraculo-financeiro
+# AI Memory Log - Oraculo-Financeiro
 
+## 2026-04-08 — Tech Upgrade: ESLint 10
+### Escopo
+Migração ESLint 9→10 finalizada.
+### Feito
+- **ESLint 10.2.0**: Upgrade + `.npmrc` para peer dep compatibility.
+- Lint clean (0 errors).
+### Versão
+- APP v01.08.10 → APP v01.08.11
+
+## 2026-04-08 — GitHub Actions Purge & Dependabot Standardization
+### Escopo
+Auditoria completa de CI/CD para eliminação de "ghost runs" em toda a rede de repositórios do workspace, juntamente com a universalização da configuração do Dependabot ajustada às necessidades de empacotamento locais para mitigar tráfego e limites no API.
+
+## 2026-04-04 - Tokens Maximizados para Inferência Avançada
+### Scope
+Remoção do teto impeditivo de resposta para Thinking Models nativos nas inferências IPCA e Análise.
+### Resolved
+- **Tokens Ampliados**: Limites de output expandidos previnindo falhas de truncamento (\SyntaxError\) após 2048 tokens por causa do tempo gasto no think phase.
+
+### Controle de versão
+- oraculo-financeiro: APP v01.08.07 -> APP v01.08.08
 
 
 ## 2026-04-03 — Cloudflare Paid Scale Integration
@@ -160,7 +181,7 @@ o-explicit-any zero tolerância usando instanceof Error) nos backends Cloudflare
   - Extração literal validada de `dataCompra`, `valorInvestido` e `taxaContratada` com purga cirúrgica de marcação markdown.
 - **Frontend Dropzone**:
   - `App.tsx` abraçou os arrays de evento `onDragOver` e `onDrop` revelando um *backdrop filter* azul (identidade Visual Tiptap). O frontend auto-preenche e notifica sucesso com `pushNotification` sem violar requisições em lote desnecessárias ao banco de dados `BIGDATA_DB`.
-
+
 
 ## 2026-04-03 — Enforcing Canonical Domain Security & TypeScript Audit
 ### Escopo
@@ -177,13 +198,5 @@ Implementação de bloqueio em Edge para impedir a exposição pública de rotea
 
 
 
-## 🤖 Claude Code — Memória Sincronizada (2026-04-09)
-
-A memória persistente do **Claude Code** está em:
-`C:\Users\leona\.claude\projects\c--Users-leona-lcv-workspace\memory\`
-
-Arquivos: `MEMORY.md` (índice) · `project_workspace.md` · `version_control.md` · `infra_directives.md` · `app_memories_ref.md` · `ai_agents_files.md`
-
-**Diretiva:** Ao atualizar esta memória, atualizar também os arquivos correspondentes da memória do Claude Code para manter paridade entre Gemini, Copilot e Claude Code.
 
 > **DIRETIVA DE SEGURANÇA:** Ao sugerir código ou responder perguntas, leia rigorosamente o contexto e as memórias históricas acima para não divergir das decisões já tomadas pelo outro agente.

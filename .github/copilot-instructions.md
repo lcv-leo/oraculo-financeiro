@@ -7,8 +7,29 @@
 
 
 ## 🧠 MEMÓRIA DE CONTEXTO ISOLADO (ORACULO-FINANCEIRO)
-# AI Memory Log - oraculo-financeiro
+# AI Memory Log - Oraculo-Financeiro
 
+## 2026-04-08 — Tech Upgrade: ESLint 10
+### Escopo
+Migração ESLint 9→10 finalizada.
+### Feito
+- **ESLint 10.2.0**: Upgrade + `.npmrc` para peer dep compatibility.
+- Lint clean (0 errors).
+### Versão
+- APP v01.08.10 → APP v01.08.11
+
+## 2026-04-08 — GitHub Actions Purge & Dependabot Standardization
+### Escopo
+Auditoria completa de CI/CD para eliminação de "ghost runs" em toda a rede de repositórios do workspace, juntamente com a universalização da configuração do Dependabot ajustada às necessidades de empacotamento locais para mitigar tráfego e limites no API.
+
+## 2026-04-04 - Tokens Maximizados para Inferência Avançada
+### Scope
+Remoção do teto impeditivo de resposta para Thinking Models nativos nas inferências IPCA e Análise.
+### Resolved
+- **Tokens Ampliados**: Limites de output expandidos previnindo falhas de truncamento (\SyntaxError\) após 2048 tokens por causa do tempo gasto no think phase.
+
+### Controle de versão
+- oraculo-financeiro: APP v01.08.07 -> APP v01.08.08
 
 
 ## 2026-04-03 — Cloudflare Paid Scale Integration
@@ -17,7 +38,7 @@ Migração arquitetural unificada para aproveitamento da infraestrutura Cloudfla
 
 ### Diretivas Respeitadas
 - Conformidade 100% com `wrangler.json`.
-- `tlsrpt-motor` e `cron-taxa-ipca` revalidados em infraestrutura moderna sem timeout.
+- `tlsrpt-motor` e `taxaipca-motor` revalidados em infraestrutura moderna sem timeout.
 
 ## 2026-04-02 - Oráculo Financeiro v01.08.06 - Migração e Tratamento de Exceções SDK IA
 ### Corrigido
@@ -67,7 +88,7 @@ o-explicit-any zero tolerância usando instanceof Error) nos backends Cloudflare
 
 ## 2026-03-27 — Oráculo Financeiro v01.06.01 + Admin-App v01.56.01 — Cron Modernization + Observability + Fixes
 ### Adicionado
-- **Admin-App OraculoModule — Cron Schedule Live**: campos cosmético/read-only de cron substituídos por selects de hora/minuto BRT compactos + botão "Salvar" que chama Cloudflare Workers Schedules API (`PUT /accounts/{id}/workers/scripts/cron-taxa-ipca/schedules`). Carrega schedule atual ao abrir aba Configurações.
+- **Admin-App OraculoModule — Cron Schedule Live**: campos cosmético/read-only de cron substituídos por selects de hora/minuto BRT compactos + botão "Salvar" que chama Cloudflare Workers Schedules API (`PUT /accounts/{id}/workers/scripts/taxaipca-motor/schedules`). Carrega schedule atual ao abrir aba Configurações.
 - **[NEW] `functions/api/oraculo/cron.ts`**: endpoint GET (lê schedule) e PUT (atualiza schedule) via `CF_API_TOKEN` + `CF_ACCOUNT_ID`.
 ### Corrigido
 - **Cron Worker CSV Parser**: `parseCSV` reescrito com mapeamento correto de 7 colunas (antes usava 8, causando dados corrompidos). Full-scan para data-base mais recente implementado.
@@ -110,7 +131,7 @@ o-explicit-any zero tolerância usando instanceof Error) nos backends Cloudflare
 ## 2026-03-26 — Oráculo Financeiro v01.03.00 + Admin-App v01.53.00 — Tesouro Transparente + Cron + Redesign Admin
 ### Adicionado
 - **Tesouro Transparente**: Worker `/api/taxa-ipca-atual` migrado de ANBIMA (paga) para CSV público gratuito. Cache D1 (`oraculo_taxa_ipca_cache`). Suporta `?force=true`.
-- **Cron Worker**: `workers/cron-taxa-ipca/` — scheduled handler `0 5 * * *` (02:00 BRT). CI/CD via `deploy.yml`.
+- **Cron Worker**: `workers/taxaipca-motor/` — scheduled handler `0 5 * * *` (02:00 BRT). CI/CD via `deploy.yml`.
 - **Máscaras Input BR**: `formatBRL`/`parseBRL`/`formatTaxa` — 7 inputs convertidos para formato brasileiro.
 - **Admin-App OraculoModule**: redesign 3 abas. Configurações: status cache, URL CSV, cron, modelos IA, trigger manual CSV.
 ### Alterado
@@ -160,7 +181,7 @@ o-explicit-any zero tolerância usando instanceof Error) nos backends Cloudflare
   - Extração literal validada de `dataCompra`, `valorInvestido` e `taxaContratada` com purga cirúrgica de marcação markdown.
 - **Frontend Dropzone**:
   - `App.tsx` abraçou os arrays de evento `onDragOver` e `onDrop` revelando um *backdrop filter* azul (identidade Visual Tiptap). O frontend auto-preenche e notifica sucesso com `pushNotification` sem violar requisições em lote desnecessárias ao banco de dados `BIGDATA_DB`.
-
+
 
 ## 2026-04-03 — Enforcing Canonical Domain Security & TypeScript Audit
 ### Escopo
@@ -177,13 +198,5 @@ Implementação de bloqueio em Edge para impedir a exposição pública de rotea
 
 
 
-## 🤖 Claude Code — Memória Sincronizada (2026-04-09)
-
-A memória persistente do **Claude Code** está em:
-`C:\Users\leona\.claude\projects\c--Users-leona-lcv-workspace\memory\`
-
-Arquivos: `MEMORY.md` (índice) · `project_workspace.md` · `version_control.md` · `infra_directives.md` · `app_memories_ref.md` · `ai_agents_files.md`
-
-**Diretiva:** Ao atualizar esta memória, atualizar também os arquivos correspondentes da memória do Claude Code para manter paridade entre Gemini, Copilot e Claude Code.
 
 > **DIRETIVA DE SEGURANÇA:** Ao sugerir código ou responder perguntas, leia rigorosamente o contexto e as memórias históricas acima para não divergir das decisões já tomadas pelo outro agente.
