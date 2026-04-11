@@ -7,6 +7,11 @@
 
 
 ## 🧠 MEMÓRIA DE CONTEXTO ISOLADO (ORACULO-FINANCEIRO)
+## 2026-04-10 — Biome 2.x + patches (v01.08.12)
+- Biome 2.x adicionado (lint + format com organizeImports)
+- vite 8.0.7 → 8.0.8, vitest 4.1.2 → 4.1.4, lucide-react 1.7.0 → 1.8.0
+- Dependabot groups: @vitest/* e @biomejs/* adicionados
+
 # AI Memory Log - Oraculo-Financeiro
 
 ## 2026-04-08 — Tech Upgrade: ESLint 10
