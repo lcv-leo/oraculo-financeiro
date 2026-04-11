@@ -1,5 +1,15 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.08.12] - 2026-04-10
+### Adicionado
+- **Biome 2.x**: lint + format com organizeImports
+
+### Alterado
+- **vite**: 8.0.7 → 8.0.8
+- **vitest**: 4.1.2 → 4.1.4
+- **lucide-react**: 1.7.0 → 1.8.0
+- **Dependabot groups**: @vitest/* e @biomejs/* adicionados
+
 ## [v01.08.11] - 2026-04-08
 ### Atualização Tecnológica
 - **ESLint 9 → 10**: Migração para `eslint@10.2.0` e `@eslint/js@10.0.1`.
