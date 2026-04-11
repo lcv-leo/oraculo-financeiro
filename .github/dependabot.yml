@@ -41,6 +41,8 @@ updates:
           - "wrangler"
           - "@cloudflare/*"
           - "vite*"
+          - "@vitest/*"
+          - "@biomejs/*"
         update-types:
           - "major"
           - "minor"
