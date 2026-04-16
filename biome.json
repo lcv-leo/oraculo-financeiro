@@ -6,7 +6,7 @@
     "rules": {
       "recommended": true,
       "suspicious": { "noConsole": "off", "noExplicitAny": "off" },
-      "correctness": { "useExhaustiveDependencies": "warn", "noUndeclaredVariables": "off" }
+      "correctness": { "noUndeclaredVariables": "off" }
     }
   },
   "formatter": {

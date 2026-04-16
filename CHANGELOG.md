@@ -1,5 +1,14 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.09.00] - 2026-04-16
+### Alterado
+- **biome.json**: removida a regra `correctness.useExhaustiveDependencies: "warn"` — era config morta (Biome não roda no CI nem em `npm run lint`; apenas `biome format`). ESLint via `eslint-plugin-react-hooks` permanece como único enforcer de hook deps.
+### Motivação
+- Biome detecta 6 warnings (vs 0 efetivos do ESLint — oraculo tem poucos `// eslint-disable`). Custo de migração não se paga. Consolidação direcional: ESLint stays, Biome fica só como formatter.
+### Não alterado
+- `eslint-plugin-react-hooks@^7.0.1` e `.npmrc legacy-peer-deps=true` permanecem.
+- Parte do plano de upgrade v2 (fase O1).
+
 ## [v01.08.12] - 2026-04-10
 ### Adicionado
 - **Biome 2.x**: lint + format com organizeImports
