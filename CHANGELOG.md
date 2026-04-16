@@ -1,5 +1,12 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.09.01] - 2026-04-16
+### Alterado
+- **Lockfile**: `package-lock.json` regenerado (rm -rf + npm install). 220 packages, 0 vulnerabilidades.
+### Motivação
+- Adotar patches recentes em deps transitivas.
+- Parte do plano de upgrade v2 (fase O2).
+
 ## [v01.09.00] - 2026-04-16
 ### Alterado
 - **biome.json**: removida a regra `correctness.useExhaustiveDependencies: "warn"` — era config morta (Biome não roda no CI nem em `npm run lint`; apenas `biome format`). ESLint via `eslint-plugin-react-hooks` permanece como único enforcer de hook deps.
