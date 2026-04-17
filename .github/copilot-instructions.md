@@ -14,6 +14,17 @@
 
 # AI Memory Log - Oraculo-Financeiro
 
+## 2026-04-17 — Oráculo Financeiro v01.09.04 (Pages observability rollback after GHA failure)
+### Escopo
+Hotfix de deploy no `oraculo-financeiro` após o GitHub Actions confirmar que `observability` não é suportado em config de Cloudflare Pages.
+### Alterado
+- `wrangler.json` do app Pages deixou de declarar `observability`.
+- `workers/taxaipca-motor/wrangler.json` manteve `observability` porque continua sendo config de Worker e já estava válido.
+### Motivação
+- Restaurar o deploy do app principal sem perder a telemetria explícita do worker `taxaipca-motor`.
+### Versão
+- APP v01.09.03 → APP v01.09.04
+
 ## 2026-04-17 — Oráculo Financeiro v01.09.03 (wrangler observability + traces)
 ### Escopo
 Padronização do baseline de observabilidade Cloudflare no `oraculo-financeiro`, cobrindo o app principal e o worker `taxaipca-motor`.

@@ -1,5 +1,11 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.09.04] - 2026-04-17
+### Corrigido
+- `wrangler.json` do app Pages deixou de declarar `observability`, preservando o baseline apenas em `workers/taxaipca-motor/wrangler.json`, que continua sendo config de Worker.
+### Motivação
+- Restaurar o deploy do `oraculo-financeiro` após os logs do GitHub Actions confirmarem que `wrangler 4.83.0` rejeita `observability` em projetos Cloudflare Pages.
+
 ## [v01.09.03] - 2026-04-17
 ### Alterado
 - `wrangler.json` e `workers/taxaipca-motor/wrangler.json` agora garantem `observability.logs.enabled = true`, `observability.logs.invocation_logs = true` e `observability.traces.enabled = true`.
@@ -295,4 +301,3 @@
 ## [v01.00.00] — Anterior
 ### Histórico
 - Versão inicial com análise LCI/LCA e Tesouro IPCA+ via IA Gemini
-
