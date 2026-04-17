@@ -1,5 +1,14 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.09.02] - 2026-04-17
+### Alterado
+- **Auth e origem fail-closed**: `oraculo-auth.ts`, `contato.ts`, `enviar-email.ts`, `analisar-ia.ts`, `tesouro-ipca-vision.ts` e `taxa-ipca-atual.ts` passaram a exigir origem `https://*.lcv.app.br`, aplicar rate limiting real e endurecer respostas sensíveis.
+- **Tokens sensíveis protegidos**: OTPs e session tokens passaram a ser persistidos por hash, mantendo compatibilidade transitória de leitura sem deixar o valor bruto como caminho canônico.
+- **Mutações públicas aposentadas**: `auditorias-ia`, `registros-lci-cdb` e `tesouro-ipca` deixaram de aceitar escrita pública e passaram a responder `410` nos caminhos de mutação descontinuados.
+- **Testes de segurança adicionados**: `functions/api/_shared/security.test.ts` cobre origem, headers, hashing e sanitização/escape dos helpers novos.
+### Motivação
+- **Origem da rodada**: fechamento da auditoria defensiva de 2026-04-17, com foco em fechar escrita pública indevida, relay abusável de e-mail e fluxos caros sem rate limit.
+
 ## [v01.09.01] - 2026-04-16
 ### Alterado
 - **Lockfile**: `package-lock.json` regenerado (rm -rf + npm install). 220 packages, 0 vulnerabilidades.
@@ -278,5 +287,4 @@
 ## [v01.00.00] — Anterior
 ### Histórico
 - Versão inicial com análise LCI/LCA e Tesouro IPCA+ via IA Gemini
-
 

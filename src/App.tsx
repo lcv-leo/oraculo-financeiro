@@ -28,7 +28,7 @@ import {
   diasParaMenorIr as calcDiasParaMenorIr,
 } from './lib/finance'
 
-const APP_VERSION = 'APP v01.09.01'
+const APP_VERSION = 'APP v01.09.02'
 
 type TabId = 'lci-lca' | 'tesouro-ipca'
 
@@ -64,15 +64,6 @@ type TituloTD = {
   taxaVenda: number
   pu: number
 }
-
-
-
-
-type ApiCreateResponse<T> = {
-  ok: boolean
-  data: T
-}
-
 type LoteTesouroForm = {
   dataCompra: string
   valorInvestido: number
@@ -511,23 +502,8 @@ function App() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/registros-lci-cdb', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(novoRegistro)
-      })
-
-      if (!response.ok) {
-        throw new Error(await parseApiError(response))
-      }
-
-      const payload = await response.json() as ApiCreateResponse<RegistroLciLca>
-      setLciRegistros((previous) => [payload.data, ...previous].slice(0, 200))
-      showNotification('Registro salvo — Dados gravados com sucesso no D1.', 'success')
-    } catch (error) {
-      showNotification(`Erro ao salvar — ${error instanceof Error ? error.message : 'Não foi possível salvar no D1.'}`, 'error')
+      setLciRegistros((previous) => [novoRegistro, ...previous].slice(0, 200))
+      showNotification('Registro adicionado — Dados incluídos na análise local atual.', 'success')
     } finally {
       setLoading(false)
     }
@@ -1068,16 +1044,14 @@ function App() {
         return
       }
 
-      // Salvar TODOS os lotes extraídos automaticamente no D1
-      let salvos = 0
-      let erros = 0
-
-      for (const lote of payload.data) {
-        const diasIr = calcDiasParaMenorIr(lote.dataCompra)
-        const analise = analisarLote(lote.dataCompra, lote.valorInvestido, lote.taxaContratada, taxaAtualTesouro, durationAnos)
+        // Adicionar TODOS os lotes extraídos à análise local atual
+        const novosRegistros: RegistroTesouroIpca[] = []
+        for (const lote of payload.data) {
+          const diasIr = calcDiasParaMenorIr(lote.dataCompra)
+          const analise = analisarLote(lote.dataCompra, lote.valorInvestido, lote.taxaContratada, taxaAtualTesouro, durationAnos)
         const sinalBinario: 'vender' | 'manter' = analise['mtmR$'] > 0 ? 'vender' : 'manter'
 
-        const registro: RegistroTesouroIpca = {
+          const registro: RegistroTesouroIpca = {
           id: crypto.randomUUID(),
           criadoEm: new Date().toISOString(),
           dataCompra: lote.dataCompra,
@@ -1087,27 +1061,14 @@ function App() {
           taxaAtual: taxaAtualTesouro,
           diasParaMenorIr: diasIr,
           sinal: sinalBinario,
-          analise: `MD: ${analise.md.toFixed(2)}a | MTM: R$ ${analise['mtmR$'].toFixed(2)} | IR: ${analise.aliquotaIrAtual}% | Vision OCR`,
-        }
-
-        try {
-          const postRes = await fetch('/api/tesouro-ipca', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(registro),
-          })
-
-          if (postRes.ok) {
-            const postPayload = await postRes.json() as ApiCreateResponse<RegistroTesouroIpca>
-            setTesouroRegistros((prev) => [postPayload.data, ...prev].slice(0, 200))
-            salvos++
-          } else {
-            erros++
+            analise: `MD: ${analise.md.toFixed(2)}a | MTM: R$ ${analise['mtmR$'].toFixed(2)} | IR: ${analise.aliquotaIrAtual}% | Vision OCR`,
           }
-        } catch {
-          erros++
+          novosRegistros.push(registro)
         }
-      }
+
+        if (novosRegistros.length > 0) {
+          setTesouroRegistros((prev) => [...novosRegistros, ...prev].slice(0, 200))
+        }
 
       // Preencher formulário com o último lote para referência visual
       const ultimo = payload.data[payload.data.length - 1]
@@ -1115,11 +1076,8 @@ function App() {
       setNovoLoteValor(ultimo.valorInvestido)
       setNovoLoteTaxa(ultimo.taxaContratada)
 
-      if (salvos > 0) {
-        showNotification(`Extração concluída — ${salvos} lote${salvos > 1 ? 's' : ''} extraído${salvos > 1 ? 's' : ''} e salvo${salvos > 1 ? 's' : ''} no D1.${erros > 0 ? ` (${erros} erro${erros > 1 ? 's' : ''})` : ''}`, 'success')
-      }
-      if (erros > 0 && salvos === 0) {
-        showNotification('Falha ao salvar — Nenhum lote extraído pôde ser salvo no banco de dados.', 'error')
+      if (novosRegistros.length > 0) {
+        showNotification(`Extração concluída — ${novosRegistros.length} lote${novosRegistros.length > 1 ? 's' : ''} extraído${novosRegistros.length > 1 ? 's' : ''} e adicionado${novosRegistros.length > 1 ? 's' : ''} à análise atual.`, 'success')
       }
 
       setActiveTab('tesouro-ipca')
@@ -1262,7 +1220,7 @@ function App() {
           </article>
 
           <div className="actions">
-            <button onClick={handleSalvarLciLca} type="button">Salvar DB</button>
+            <button onClick={handleSalvarLciLca} type="button">Adicionar Registro</button>
             <button onClick={() => void handleAnalisarIa()} type="button" className="btn-ia" disabled={analisandoIa}>
               {analisandoIa ? 'Analisando...' : '✦ Analisar com IA'}
             </button>
@@ -1762,4 +1720,3 @@ function App() {
 }
 
 export default App
-

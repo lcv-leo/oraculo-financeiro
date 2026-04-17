@@ -5,9 +5,10 @@
 // Cache: D1 (oraculo_taxa_ipca_cache) — evita download de ~13 MB a cada request.
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
+import { enforceRateLimit, jsonResponse, requireAllowedOrigin, type D1DatabaseLike } from './_shared/security'
 
 interface Env {
-  BIGDATA_DB: unknown // Cloudflare D1 binding
+  BIGDATA_DB: D1DatabaseLike
 }
 
 interface Context {
@@ -32,13 +33,6 @@ interface TituloTD {
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
-
-function jsonResponse(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-  })
-}
 
 /**
  * CSV real do Tesouro Transparente (7 colunas):
@@ -113,6 +107,9 @@ function parseCSV(csvText: string): TituloTD[] {
 // ─── HANDLER ──────────────────────────────────────────────────────────────────
 
 export const onRequestGet = async ({ env, request }: Context) => {
+  const originError = requireAllowedOrigin(request)
+  if (originError) return originError
+
   const db = env?.BIGDATA_DB
   if (!db || typeof db.prepare !== 'function') {
     return jsonResponse({ ok: false, error: 'Database binding (BIGDATA_DB) indisponível.' }, 503)
@@ -121,6 +118,11 @@ export const onRequestGet = async ({ env, request }: Context) => {
   // Suporte a ?force=true para bypass do cache (trigger manual via admin-app)
   const url = new URL(request.url)
   const forceRefresh = url.searchParams.get('force') === 'true'
+
+  if (forceRefresh) {
+    const rateLimitError = await enforceRateLimit(request, db, 'taxa_ipca_force_refresh')
+    if (rateLimitError) return rateLimitError
+  }
 
   try {
     // ── 1. Verificar cache D1 (válido se atualizado hoje) ───────────────────

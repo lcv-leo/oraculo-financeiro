@@ -3,6 +3,7 @@
 // Descrição: Upgrade Gemini API — modelo gemini-3.1-pro-preview (auto-atualiza), v1beta, thinkingLevel HIGH, safetySettings (BLOCK_NONE para conteúdo financeiro), retry com 1 tentativa extra. Prompt fiduciário preservado.
 
 import { GoogleGenAI } from '@google/genai';
+import { enforceRateLimit, jsonResponse, requireAllowedOrigin } from './_shared/security'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -288,16 +289,15 @@ function logAiUsage(
   })();
 }
 
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
-  })
-}
-
 // ─── HANDLER PRINCIPAL ────────────────────────────────────────────────────────
 
 export const onRequestPost = async ({ env, request }: Context) => {
+  const originError = requireAllowedOrigin(request)
+  if (originError) return originError
+
+  const rateLimitError = await enforceRateLimit(request, env.BIGDATA_DB, 'analisar_ia')
+  if (rateLimitError) return rateLimitError
+
   const envRec = env as unknown as Record<string, unknown>
   const apiKey = (env?.GEMINI_API_KEY || envRec['GEMINI_APP_KEY'] || envRec['gemini-api-key'] || envRec['gemini-app-key']) as string
   if (!apiKey) {

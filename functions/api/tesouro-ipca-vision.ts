@@ -4,6 +4,7 @@
 // Alinhado ao padrão do analisar-ia.ts: retry, thought filtering, jsonResponse, safety BLOCK_ONLY_HIGH.
 
 import { GoogleGenAI } from '@google/genai';
+import { enforceRateLimit, jsonResponse, requireAllowedOrigin } from './_shared/security'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -40,13 +41,6 @@ function structuredLog(level: string, message: string, context = {}) {
   console.log(JSON.stringify(logEntry));
 }
 
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
-  })
-}
-
 // ── Telemetria: registra uso de AI no BIGDATA_DB ──
 function logAiUsage(
   db: D1DatabaseLike | undefined,
@@ -81,6 +75,14 @@ function logAiUsage(
 // ─── HANDLER PRINCIPAL ────────────────────────────────────────────────────────
 
 export const onRequestPost = async ({ request, env }: Context) => {
+  const originError = requireAllowedOrigin(request)
+  if (originError) return originError
+
+  if (env.BIGDATA_DB) {
+    const rateLimitError = await enforceRateLimit(request, env.BIGDATA_DB, 'tesouro_ipca_vision')
+    if (rateLimitError) return rateLimitError
+  }
+
   const envRec = env as unknown as Record<string, unknown>
   const apiKey = (env?.GEMINI_API_KEY || envRec['GEMINI_APP_KEY'] || envRec['gemini-api-key'] || envRec['gemini-app-key']) as string
   if (!apiKey) {

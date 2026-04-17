@@ -1,20 +1,22 @@
 // Endpoint: POST /api/enviar-email
 // Envia relatório de análise financeira por e-mail via Resend
 
+import { enforceRateLimit, jsonResponse, requireAllowedOrigin, sanitizeRichEmailHtml, type D1DatabaseLike } from './_shared/security'
+
 interface Env {
   RESEND_API_KEY: string
+  BIGDATA_DB: D1DatabaseLike
 }
 
 interface Ctx { env: Env; request: Request }
 
-function jsonResponse(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
 export const onRequestPost = async ({ env, request }: Ctx) => {
+  const originError = requireAllowedOrigin(request)
+  if (originError) return originError
+
+  const rateLimitError = await enforceRateLimit(request, env.BIGDATA_DB, 'enviar_email')
+  if (rateLimitError) return rateLimitError
+
   const envRec = env as unknown as Record<string, unknown>;
   const apiKey = (env?.RESEND_API_KEY || envRec['RESEND_APP_KEY'] || envRec['RESEND_APPKEY'] || envRec['resend-api-key'] || envRec['resend-appkey']) as string;
   if (!apiKey) return jsonResponse({ ok: false, error: 'RESEND_API_KEY não configurada.' }, 503)
@@ -22,7 +24,7 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
   try {
     const body = await request.json() as { emailDestino?: string; relatorioHtml?: string; relatorioTexto?: string }
     const emailDestino = (body.emailDestino ?? '').trim()
-    const relatorioHtml = body.relatorioHtml ?? ''
+    const relatorioHtml = sanitizeRichEmailHtml(body.relatorioHtml ?? '')
     const relatorioTexto = body.relatorioTexto ?? ''
 
     if (!emailDestino || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailDestino)) {

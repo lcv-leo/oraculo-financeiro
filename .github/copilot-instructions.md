@@ -14,6 +14,19 @@
 
 # AI Memory Log - Oraculo-Financeiro
 
+## 2026-04-17 — Oráculo Financeiro v01.09.02 (origem/auth fail-closed + mutações públicas desativadas)
+### Escopo
+Fechamento da auditoria defensiva de 2026-04-17 no `oraculo-financeiro`, com endurecimento de origem/auth, desativação de superfícies públicas indevidas de mutação e cobertura mínima de testes para os helpers novos de segurança.
+### Alterado
+- **Origem e rate limiting**: `oraculo-auth.ts`, `contato.ts`, `enviar-email.ts`, `analisar-ia.ts`, `tesouro-ipca-vision.ts` e `taxa-ipca-atual.ts` passaram a operar fail-closed para origem e com quotas reais.
+- **Tokens sensíveis**: OTPs e sessões migraram para persistência por hash com lookup compatível durante a transição.
+- **Mutações públicas desativadas**: `auditorias-ia`, `registros-lci-cdb` e `tesouro-ipca` passaram a responder `410` nos caminhos de escrita públicos.
+- **Testes**: `functions/api/_shared/security.test.ts` cobre origem, headers, sanitização/escape e hashing.
+### Motivação
+- Responder à auditoria defensiva fechando escrita pública indevida, reduzindo relay abusável de e-mail e deixando os novos helpers de segurança com cobertura de regressão.
+### Versão
+- APP v01.09.01 → APP v01.09.02
+
 ## 2026-04-08 — Tech Upgrade: ESLint 10
 ### Escopo
 Migração ESLint 9→10 finalizada.

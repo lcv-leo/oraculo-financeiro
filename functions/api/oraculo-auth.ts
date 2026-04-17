@@ -3,20 +3,20 @@
 // Sessão: após OTP bem-sucedido, gera session token (UUID) com TTL de 60 minutos.
 // Bindings: BIGDATA_DB (D1), RESEND_API_KEY (env var)
 
+import {
+  enforceRateLimit,
+  hashToken,
+  jsonResponse,
+  requireAllowedOrigin,
+  type D1DatabaseLike,
+} from './_shared/security'
+
 interface Env {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  BIGDATA_DB: any
+  BIGDATA_DB: D1DatabaseLike
   RESEND_API_KEY: string
 }
 
 interface Ctx { env: Env; request: Request }
-
-function jsonResponse(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-  })
-}
 
 function generateOTP(): string {
   const array = new Uint32Array(1)
@@ -31,9 +31,10 @@ async function createSessionToken(db: Env['BIGDATA_DB'], email: string): Promise
   const sessionToken = crypto.randomUUID()
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString()
   const id = crypto.randomUUID()
+  const tokenHash = await hashToken(sessionToken)
   await db.prepare(
     `INSERT INTO oraculo_auth_tokens (id, email, token, action, expires_at) VALUES (?, ?, ?, 'session', ?)`
-  ).bind(id, email, sessionToken, expiresAt).run()
+  ).bind(id, email, tokenHash, expiresAt).run()
   return sessionToken
 }
 
@@ -125,10 +126,16 @@ async function stampEmailOnRecords(db: Env['BIGDATA_DB'], email: string, dadosJs
 // ─── HANDLER ──────────────────────────────────────────────────────────────────
 
 export const onRequestPost = async ({ env, request }: Ctx) => {
+  const originError = requireAllowedOrigin(request)
+  if (originError) return originError
+
   const db = env?.BIGDATA_DB
   if (!db || typeof db.prepare !== 'function') {
     return jsonResponse({ ok: false, error: 'Database indisponível.' }, 503)
   }
+
+  const rateLimitError = await enforceRateLimit(request, db, 'auth')
+  if (rateLimitError) return rateLimitError
 
   const envRec = env as unknown as Record<string, unknown>
   const apiKey = (env?.RESEND_API_KEY || envRec['RESEND_APP_KEY'] || envRec['RESEND_APPKEY'] || envRec['resend-api-key'] || envRec['resend-appkey']) as string
@@ -156,10 +163,11 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
       const token = generateOTP()
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
       const id = crypto.randomUUID()
+      const tokenHash = await hashToken(token)
 
       await db.prepare(
         `INSERT INTO oraculo_auth_tokens (id, email, token, action, dados_json, expires_at) VALUES (?, ?, ?, 'save', ?, ?)`
-      ).bind(id, email, token, JSON.stringify(body.dados), expiresAt).run()
+      ).bind(id, email, tokenHash, JSON.stringify(body.dados), expiresAt).run()
 
       const sent = await sendTokenEmail(email, token, apiKey)
       if (!sent) {
@@ -173,12 +181,13 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
     if (action === 'verify-save') {
       const token = (body.token ?? '').trim()
       if (!token) return jsonResponse({ ok: false, error: 'Token não fornecido.' }, 400)
+      const tokenHash = await hashToken(token)
 
       const row = await db.prepare(
         `SELECT id, dados_json, expires_at FROM oraculo_auth_tokens 
-         WHERE email = ? AND token = ? AND action = 'save' AND used = 0 
+         WHERE email = ? AND token IN (? , ?) AND action = 'save' AND used = 0 
          ORDER BY created_at DESC LIMIT 1`
-      ).bind(email, token).first()
+      ).bind(email, token, tokenHash).first()
 
       if (!row) return jsonResponse({ ok: false, error: 'Código inválido ou expirado.' }, 401)
       if (new Date(row.expires_at as string) < new Date()) {
@@ -218,16 +227,17 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
       ).bind(email).first()
 
       if (!existingData) {
-        return jsonResponse({ ok: false, error: 'Nenhum dado encontrado para esse e-mail.' }, 404)
+        return jsonResponse({ ok: true, message: 'Se houver dados vinculados a este e-mail, um código será enviado.' })
       }
 
       const token = generateOTP()
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
       const id = crypto.randomUUID()
+      const tokenHash = await hashToken(token)
 
       await db.prepare(
         `INSERT INTO oraculo_auth_tokens (id, email, token, action, expires_at) VALUES (?, ?, ?, 'retrieve', ?)`
-      ).bind(id, email, token, expiresAt).run()
+      ).bind(id, email, tokenHash, expiresAt).run()
 
       const sent = await sendTokenEmail(email, token, apiKey)
       if (!sent) {
@@ -241,12 +251,13 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
     if (action === 'retrieve') {
       const token = (body.token ?? '').trim()
       if (!token) return jsonResponse({ ok: false, error: 'Token não fornecido.' }, 400)
+      const tokenHash = await hashToken(token)
 
       const row = await db.prepare(
         `SELECT id, expires_at FROM oraculo_auth_tokens 
-         WHERE email = ? AND token = ? AND action = 'retrieve' AND used = 0 
+         WHERE email = ? AND token IN (?, ?) AND action = 'retrieve' AND used = 0 
          ORDER BY created_at DESC LIMIT 1`
-      ).bind(email, token).first()
+      ).bind(email, token, tokenHash).first()
 
       if (!row) return jsonResponse({ ok: false, error: 'Código inválido ou expirado.' }, 401)
       if (new Date(row.expires_at as string) < new Date()) {
@@ -274,12 +285,13 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
     if (action === 'session-retrieve') {
       const sessionTokenInput = (body.token ?? '').trim()
       if (!sessionTokenInput) return jsonResponse({ ok: false, error: 'Session token não fornecido.' }, 400)
+      const sessionTokenHash = await hashToken(sessionTokenInput)
 
       const row = await db.prepare(
         `SELECT id, email, expires_at FROM oraculo_auth_tokens 
-         WHERE token = ? AND action = 'session' AND used = 0 
+         WHERE token IN (?, ?) AND action = 'session' AND used = 0 
          ORDER BY created_at DESC LIMIT 1`
-      ).bind(sessionTokenInput).first()
+      ).bind(sessionTokenInput, sessionTokenHash).first()
 
       if (!row) return jsonResponse({ ok: false, error: 'Sessão inválida ou expirada.' }, 401)
 
@@ -315,16 +327,17 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
       ).bind(email).first()
 
       if (!existingData) {
-        return jsonResponse({ ok: false, error: 'Nenhum dado encontrado para esse e-mail.' }, 404)
+        return jsonResponse({ ok: true, message: 'Se houver dados vinculados a este e-mail, um código será enviado.' })
       }
 
       const token = generateOTP()
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
       const id = crypto.randomUUID()
+      const tokenHash = await hashToken(token)
 
       await db.prepare(
         `INSERT INTO oraculo_auth_tokens (id, email, token, action, expires_at) VALUES (?, ?, ?, 'delete', ?)`
-      ).bind(id, email, token, expiresAt).run()
+      ).bind(id, email, tokenHash, expiresAt).run()
 
       const sent = await sendTokenEmail(email, token, apiKey)
       if (!sent) {
@@ -338,12 +351,13 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
     if (action === 'verify-delete') {
       const token = (body.token ?? '').trim()
       if (!token) return jsonResponse({ ok: false, error: 'Token não fornecido.' }, 400)
+      const tokenHash = await hashToken(token)
 
       const row = await db.prepare(
         `SELECT id, expires_at FROM oraculo_auth_tokens 
-         WHERE email = ? AND token = ? AND action = 'delete' AND used = 0 
+         WHERE email = ? AND token IN (?, ?) AND action = 'delete' AND used = 0 
          ORDER BY created_at DESC LIMIT 1`
-      ).bind(email, token).first()
+      ).bind(email, token, tokenHash).first()
 
       if (!row) return jsonResponse({ ok: false, error: 'Código inválido ou expirado.' }, 401)
       if (new Date(row.expires_at as string) < new Date()) {

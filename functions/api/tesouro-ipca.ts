@@ -1,171 +1,17 @@
-type D1Result<T = unknown> = { results?: T[] }
-
-interface D1Prepared {
-  bind: (...args: unknown[]) => {
-    run: () => Promise<unknown>
-  }
-  all: () => Promise<D1Result>
-  run: () => Promise<unknown>
-}
-
-interface D1DatabaseLike {
-  prepare: (query: string) => D1Prepared
-}
-
-interface Env {
-  BIGDATA_DB: D1DatabaseLike
-}
-
-interface Context {
-  env: Env
-  request: Request
-}
-
-type Recomendacao = 'vender' | 'manter'
-
-type LoteTesouro = {
-  id: string
-  criadoEm: string
-  dataCompra: string
-  valorInvestido: number
-  taxaContratada: number
-  vencimento: string
-  taxaAtual: number
-  diasParaMenorIr: number
-  sinal: Recomendacao
-  analise: string
-}
-
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'no-store'
-    }
+      'Cache-Control': 'no-store',
+    },
   })
 }
 
-function getDbOrThrow(env: Env) {
-  const db = env?.BIGDATA_DB
-  if (!db || typeof db.prepare !== 'function') {
-    throw new Error('Binding BIGDATA_DB ausente.')
-  }
+const CLOSED_MESSAGE = 'Persistência direta de lotes foi removida desta superfície pública. Use o fluxo autenticado de salvar análise.'
 
-  return db
-}
+export const onRequestPost = async () =>
+  jsonResponse({ ok: false, error: CLOSED_MESSAGE }, 410)
 
-// GET handler REMOVIDO por segurança.
-// Dados de usuário NÃO podem ser servidos publicamente.
-// Acesso somente via fluxo autenticado (oraculo-auth.ts → retrieve).
-
-export const onRequestPost = async ({ env, request }: Context) => {
-  try {
-    const db = getDbOrThrow(env)
-    const payload = (await request.json()) as Partial<LoteTesouro>
-
-    const dataCompra = String(payload.dataCompra ?? '').trim()
-    const valorInvestido = Number(payload.valorInvestido)
-    const taxaContratada = Number(payload.taxaContratada)
-    const vencimento = String(payload.vencimento ?? '').trim()
-    const taxaAtual = Number(payload.taxaAtual)
-    const diasParaMenorIr = Number(payload.diasParaMenorIr)
-    const recomendacao = String(payload.sinal ?? '').trim() as Recomendacao
-    const observacao = String(payload.analise ?? '').trim()
-    const email = String((payload as Record<string, unknown>).email ?? '').trim().toLowerCase()
-
-    if (!dataCompra || [valorInvestido, taxaContratada, taxaAtual, diasParaMenorIr].some((n) => Number.isNaN(n))) {
-      return jsonResponse({ ok: false, error: 'Payload inválido para lote Tesouro IPCA+.' }, 400)
-    }
-
-    // Self-healing: add email column if missing
-    try { await db.prepare(`ALTER TABLE oraculo_tesouro_ipca_lotes ADD COLUMN email TEXT DEFAULT ''`).run() } catch { /* exists */ }
-
-    if (!['vender', 'manter'].includes(recomendacao)) {
-      return jsonResponse({ ok: false, error: 'Recomendação inválida.' }, 400)
-    }
-
-    const id = crypto.randomUUID()
-    const criadoEm = new Date().toISOString()
-
-    await db.prepare(
-      `INSERT INTO oraculo_tesouro_ipca_lotes (
-        id,
-        created_at,
-        data_compra,
-        valor_investido,
-        taxa_contratada,
-        vencimento,
-        taxa_atual,
-        dias_para_menor_ir,
-        recomendacao,
-        observacao,
-        email
-      ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`
-    )
-      .bind(
-        id,
-        criadoEm,
-        dataCompra,
-        valorInvestido,
-        taxaContratada,
-        vencimento,
-        taxaAtual,
-        diasParaMenorIr,
-        recomendacao,
-        observacao,
-        email
-      )
-      .run()
-
-    return jsonResponse(
-      {
-        ok: true,
-        data: {
-          id,
-          criadoEm,
-          dataCompra,
-          valorInvestido,
-          taxaContratada,
-          vencimento,
-          taxaAtual,
-          diasParaMenorIr,
-          sinal: recomendacao,
-          analise: observacao
-        }
-      },
-      201
-    )
-  } catch (error) {
-    return jsonResponse(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Falha ao salvar lote do Tesouro IPCA+.'
-      },
-      500
-    )
-  }
-}
-
-export const onRequestDelete = async ({ env, request }: Context) => {
-  try {
-    const db = getDbOrThrow(env)
-    const url = new URL(request.url)
-    const id = String(url.searchParams.get('id') ?? '').trim()
-
-    if (!id) {
-      return jsonResponse({ ok: false, error: 'Parâmetro id é obrigatório para exclusão.' }, 400)
-    }
-
-    await db.prepare('DELETE FROM oraculo_tesouro_ipca_lotes WHERE id = ?1').bind(id).run()
-    return jsonResponse({ ok: true })
-  } catch (error) {
-    return jsonResponse(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Falha ao excluir lote do Tesouro IPCA+.'
-      },
-      500
-    )
-  }
-}
+export const onRequestDelete = async () =>
+  jsonResponse({ ok: false, error: CLOSED_MESSAGE }, 410)
