@@ -1,3 +1,13 @@
+## 2026-04-17 — Oráculo Financeiro v01.09.03 (wrangler observability + traces)
+### Escopo
+Padronização do baseline de observabilidade Cloudflare no `oraculo-financeiro`, cobrindo o app principal e o worker `taxaipca-motor`.
+### Alterado
+- `wrangler.json` e `workers/taxaipca-motor/wrangler.json` agora garantem `observability.logs.enabled = true`, `observability.logs.invocation_logs = true` e `observability.traces.enabled = true`.
+- Campos existentes de observability, como `head_sampling_rate`, foram preservados durante o merge do config.
+### Motivação
+- Fechar a padronização de telemetria do workspace sem regressão de configuração.
+### Versão
+- APP v01.09.02 → APP v01.09.03
 ## 2026-04-10 — Biome 2.x + patches (v01.08.12)
 - Biome 2.x adicionado (lint + format com organizeImports)
 - vite 8.0.7 → 8.0.8, vitest 4.1.2 → 4.1.4, lucide-react 1.7.0 → 1.8.0

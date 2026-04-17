@@ -1,5 +1,13 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.09.03] - 2026-04-17
+### Alterado
+- `wrangler.json` e `workers/taxaipca-motor/wrangler.json` agora garantem `observability.logs.enabled = true`, `observability.logs.invocation_logs = true` e `observability.traces.enabled = true`.
+- Campos preexistentes de observability, como `head_sampling_rate`, foram preservados durante o merge do baseline.
+### Motivação
+- Padronizar logs de invocação e traces do Cloudflare no `oraculo-financeiro` e no worker `taxaipca-motor`.
+
+
 ## [v01.09.02] - 2026-04-17
 ### Alterado
 - **Auth e origem fail-closed**: `oraculo-auth.ts`, `contato.ts`, `enviar-email.ts`, `analisar-ia.ts`, `tesouro-ipca-vision.ts` e `taxa-ipca-atual.ts` passaram a exigir origem `https://*.lcv.app.br`, aplicar rate limiting real e endurecer respostas sensíveis.

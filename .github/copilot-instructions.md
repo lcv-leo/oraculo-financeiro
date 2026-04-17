@@ -14,6 +14,18 @@
 
 # AI Memory Log - Oraculo-Financeiro
 
+## 2026-04-17 — Oráculo Financeiro v01.09.03 (wrangler observability + traces)
+### Escopo
+Padronização do baseline de observabilidade Cloudflare no `oraculo-financeiro`, cobrindo o app principal e o worker `taxaipca-motor`.
+### Alterado
+- `wrangler.json` e `workers/taxaipca-motor/wrangler.json` agora garantem `observability.logs.enabled = true`, `observability.logs.invocation_logs = true` e `observability.traces.enabled = true`.
+- Campos existentes de observability, como `head_sampling_rate`, foram preservados durante o merge do config.
+### Motivação
+- Fechar a padronização de telemetria do workspace sem regressão de configuração.
+### Versão
+- APP v01.09.02 → APP v01.09.03
+
+
 ## 2026-04-17 — Oráculo Financeiro v01.09.02 (origem/auth fail-closed + mutações públicas desativadas)
 ### Escopo
 Fechamento da auditoria defensiva de 2026-04-17 no `oraculo-financeiro`, com endurecimento de origem/auth, desativação de superfícies públicas indevidas de mutação e cobertura mínima de testes para os helpers novos de segurança.
