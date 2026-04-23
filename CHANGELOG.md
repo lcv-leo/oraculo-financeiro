@@ -1,5 +1,12 @@
 # Changelog — Oráculo Financeiro
 
+## [Security Publication Hardening] - 2026-04-23
+### Segurança
+- Memórias e contexto interno de desenvolvimento passaram a ser apenas locais: padrões correspondentes adicionados ao ignore e removidos do índice Git com `git rm --cached`, preservando os arquivos no disco local.
+- Regras de publicação foram endurecidas para impedir envio de `.env*`, `.dev.vars*`, `.wrangler/`, `.tmp/`, logs, bancos locais e artefatos de teste para GitHub/npm.
+### Validação
+- `git ls-files` confirmou ausência de memórias/artefatos locais rastreados; `npm pack --dry-run --json --ignore-scripts` não incluiu arquivos proibidos.
+
 ## [v01.09.04] - 2026-04-17
 ### Corrigido
 - `wrangler.json` do app Pages deixou de declarar `observability`, preservando o baseline apenas em `workers/taxaipca-motor/wrangler.json`, que continua sendo config de Worker.
