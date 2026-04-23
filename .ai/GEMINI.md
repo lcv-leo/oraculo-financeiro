@@ -7,13 +7,6 @@
 
 
 ## 🧠 MEMÓRIA DE CONTEXTO ISOLADO (ORACULO-FINANCEIRO)
-## 2026-04-10 — Biome 2.x + patches (v01.08.12)
-- Biome 2.x adicionado (lint + format com organizeImports)
-- vite 8.0.7 → 8.0.8, vitest 4.1.2 → 4.1.4, lucide-react 1.7.0 → 1.8.0
-- Dependabot groups: @vitest/* e @biomejs/* adicionados
-
-# AI Memory Log - Oraculo-Financeiro
-
 ## 2026-04-17 — Oráculo Financeiro v01.09.04 (Pages observability rollback after GHA failure)
 ### Escopo
 Hotfix de deploy no `oraculo-financeiro` após o GitHub Actions confirmar que `observability` não é suportado em config de Cloudflare Pages.
@@ -35,7 +28,12 @@ Padronização do baseline de observabilidade Cloudflare no `oraculo-financeiro`
 - Fechar a padronização de telemetria do workspace sem regressão de configuração.
 ### Versão
 - APP v01.09.02 → APP v01.09.03
+## 2026-04-10 — Biome 2.x + patches (v01.08.12)
+- Biome 2.x adicionado (lint + format com organizeImports)
+- vite 8.0.7 → 8.0.8, vitest 4.1.2 → 4.1.4, lucide-react 1.7.0 → 1.8.0
+- Dependabot groups: @vitest/* e @biomejs/* adicionados
 
+# AI Memory Log - Oraculo-Financeiro
 
 ## 2026-04-17 — Oráculo Financeiro v01.09.02 (origem/auth fail-closed + mutações públicas desativadas)
 ### Escopo
@@ -236,8 +234,6 @@ Implementação de bloqueio em Edge para impedir a exposição pública de rotea
 - `calculadora-app`: middleware deployment, versioning handled internally
 - `apphub`: middleware deployment, versioning handled internally
 - `adminapps`: middleware deployment, versioning handled internally
-
-
 
 
 > **DIRETIVA DE SEGURANÇA:** Ao sugerir código ou responder perguntas, leia rigorosamente o contexto e as memórias históricas acima para não divergir das decisões já tomadas pelo outro agente.
