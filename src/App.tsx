@@ -27,8 +27,9 @@ import {
   mediasPonderadasPorCapital,
   diasParaMenorIr as calcDiasParaMenorIr,
 } from './lib/finance'
+import { fetchJson } from './lib/api'
 
-const APP_VERSION = 'APP v01.09.04'
+const APP_VERSION = 'APP v01.10.00'
 
 type TabId = 'lci-lca' | 'tesouro-ipca'
 
@@ -439,42 +440,41 @@ function App() {
     if (!session) return
 
     const autoRetrieve = async () => {
-      try {
-        const res = await fetch('/api/oraculo-auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'session-retrieve',
-            email: session.email,
-            token: session.sessionToken,
-          }),
-        })
-        const result = await res.json() as {
-          ok: boolean
-          dados?: ReturnType<typeof collectAnaliseData>
-          sessionToken?: string
-          error?: string
-        }
+      const envelope = await fetchJson<{
+        ok: boolean
+        dados?: ReturnType<typeof collectAnaliseData>
+        sessionToken?: string
+        error?: string
+      }>('/api/oraculo-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'session-retrieve',
+          email: session.email,
+          token: session.sessionToken,
+        }),
+      })
 
-        if (result.ok && result.dados) {
-          if (result.dados.tesouroRegistros) setTesouroRegistros(result.dados.tesouroRegistros)
-          if (result.dados.lciRegistros) setLciRegistros(result.dados.lciRegistros)
-          if (result.dados.taxaAtualTesouro) setTaxaAtualTesouro(result.dados.taxaAtualTesouro)
-          if (result.dados.durationAnos) setDurationAnos(result.dados.durationAnos)
-          if (result.dados.cdiAtual) setCdiAtual(result.dados.cdiAtual)
-          if (result.dados.ipcaProjetado) setIpcaProjetado(result.dados.ipcaProjetado)
-          if (result.dados.prazoDias) setPrazoDias(result.dados.prazoDias)
-          if (result.dados.taxaLciLca) setTaxaLciLca(result.dados.taxaLciLca)
-          if (result.dados.aporte) setAporte(result.dados.aporte)
-          // Renovar sessão com novo token rotacionado
-          if (result.sessionToken) createSession(session.email, result.sessionToken)
-          showNotification(`Sessão restaurada — Dados de ${session.email} carregados automaticamente.`, 'success')
-        } else {
-          // Sessão inválida/expirada no backend — limpar local
-          clearSession()
-        }
-      } catch {
-        // Falha de rede — não limpar sessão, usuário pode tentar novamente
+      if (!envelope.data) {
+        // Resposta não-JSON ou falha de rede — não limpa sessão local.
+        return
+      }
+
+      const result = envelope.data
+      if (result.ok && result.dados) {
+        if (result.dados.tesouroRegistros) setTesouroRegistros(result.dados.tesouroRegistros)
+        if (result.dados.lciRegistros) setLciRegistros(result.dados.lciRegistros)
+        if (result.dados.taxaAtualTesouro) setTaxaAtualTesouro(result.dados.taxaAtualTesouro)
+        if (result.dados.durationAnos) setDurationAnos(result.dados.durationAnos)
+        if (result.dados.cdiAtual) setCdiAtual(result.dados.cdiAtual)
+        if (result.dados.ipcaProjetado) setIpcaProjetado(result.dados.ipcaProjetado)
+        if (result.dados.prazoDias) setPrazoDias(result.dados.prazoDias)
+        if (result.dados.taxaLciLca) setTaxaLciLca(result.dados.taxaLciLca)
+        if (result.dados.aporte) setAporte(result.dados.aporte)
+        if (result.sessionToken) createSession(session.email, result.sessionToken)
+        showNotification(`Sessão restaurada — Dados de ${session.email} carregados automaticamente.`, 'success')
+      } else {
+        clearSession()
       }
     }
     void autoRetrieve()
@@ -534,21 +534,27 @@ function App() {
       const body: Record<string, unknown> = { action, email: authEmail }
       if (authMode === 'save') body.dados = collectAnaliseData()
 
-      const res = await fetch('/api/oraculo-auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      const result = await res.json() as { ok: boolean; message?: string; error?: string }
+      const envelope = await fetchJson<{ ok: boolean; message?: string; error?: string }>(
+        '/api/oraculo-auth',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+      )
 
+      if (!envelope.data) {
+        showNotification(envelope.error ?? 'Erro de rede — Não foi possível conectar ao servidor.', 'error')
+        return
+      }
+
+      const result = envelope.data
       if (result.ok) {
         setAuthStep('token')
         showNotification(`Código enviado — ${result.message ?? 'Verifique seu e-mail.'}`, 'info')
       } else {
         showNotification(result.error ?? 'Falha ao enviar código.', 'error')
       }
-    } catch {
-      showNotification('Erro de rede — Não foi possível conectar ao servidor.', 'error')
     } finally {
       setAuthLoading(false)
     }
@@ -559,19 +565,24 @@ function App() {
     setAuthLoading(true)
     try {
       const action = authMode === 'save' ? 'verify-save' : authMode === 'delete' ? 'verify-delete' : 'retrieve'
-      const res = await fetch('/api/oraculo-auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, email: authEmail, token: authToken }),
-      })
-      const result = await res.json() as {
+      const envelope = await fetchJson<{
         ok: boolean
         message?: string
         error?: string
         dados?: ReturnType<typeof collectAnaliseData>
         sessionToken?: string
+      }>('/api/oraculo-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, email: authEmail, token: authToken }),
+      })
+
+      if (!envelope.data) {
+        showNotification(envelope.error ?? 'Erro de rede — Não foi possível conectar ao servidor.', 'error')
+        return
       }
 
+      const result = envelope.data
       if (result.ok) {
         if (authMode === 'delete') {
           // Limpar todos os dados locais e sessão após exclusão
@@ -604,8 +615,6 @@ function App() {
       } else {
         showNotification(result.error ?? 'Código inválido.', 'error')
       }
-    } catch {
-      showNotification('Erro de rede — Não foi possível conectar ao servidor.', 'error')
     } finally {
       setAuthLoading(false)
     }

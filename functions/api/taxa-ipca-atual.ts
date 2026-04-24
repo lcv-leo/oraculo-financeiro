@@ -107,24 +107,25 @@ function parseCSV(csvText: string): TituloTD[] {
 // ─── HANDLER ──────────────────────────────────────────────────────────────────
 
 export const onRequestGet = async ({ env, request }: Context) => {
-  const originError = requireAllowedOrigin(request)
-  if (originError) return originError
-
-  const db = env?.BIGDATA_DB
-  if (!db || typeof db.prepare !== 'function') {
-    return jsonResponse({ ok: false, error: 'Database binding (BIGDATA_DB) indisponível.' }, 503)
-  }
-
-  // Suporte a ?force=true para bypass do cache (trigger manual via admin-app)
-  const url = new URL(request.url)
-  const forceRefresh = url.searchParams.get('force') === 'true'
-
-  if (forceRefresh) {
-    const rateLimitError = await enforceRateLimit(request, db, 'taxa_ipca_force_refresh')
-    if (rateLimitError) return rateLimitError
-  }
-
   try {
+    const originError = requireAllowedOrigin(request)
+    if (originError) return originError
+
+    const db = env?.BIGDATA_DB
+    if (!db || typeof db.prepare !== 'function') {
+      return jsonResponse({ ok: false, error: 'Database binding (BIGDATA_DB) indisponível.' }, 503)
+    }
+
+    // Suporte a ?force=true para bypass do cache (trigger manual via admin-app)
+    const url = new URL(request.url)
+    const forceRefresh = url.searchParams.get('force') === 'true'
+
+    if (forceRefresh) {
+      const rateLimitError = await enforceRateLimit(request, db, 'taxa_ipca_force_refresh')
+      if (rateLimitError) return rateLimitError
+    }
+
+
     // ── 1. Verificar cache D1 (válido se atualizado hoje) ───────────────────
     const hoje = new Date().toISOString().slice(0, 10)
 
@@ -206,9 +207,7 @@ export const onRequestGet = async ({ env, request }: Context) => {
       titulos,
     })
   } catch (error) {
-    return jsonResponse({
-      ok: false,
-      error: error instanceof Error ? error.message : 'Erro interno ao consultar Tesouro Transparente.',
-    }, 500)
+    console.error('taxa-ipca-atual:onRequestGet', error)
+    return jsonResponse({ ok: false, error: 'Erro interno.' }, 500)
   }
 }

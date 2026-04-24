@@ -1,5 +1,20 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.10.00] - 2026-04-24
+### Corrigido
+- **GET `/api/taxa-ipca-atual` → 403 no carregamento do app**: `requireAllowedOrigin` ficou incompatível com browsers em GET same-origin (Chrome/Firefox/Safari não enviam header `Origin` em GET same-origin, apenas em métodos não-safe). O helper agora aceita Origin ausente quando `Sec-Fetch-Site` é `same-origin`/`same-site`; rejeita `cross-site` e ausência de ambos sinais.
+- **POST `/api/oraculo-auth` → 500 (Cloudflare error 1101, "Worker threw exception")**: handler `onRequestPost` lançava exceção fora do try/catch (chamadas a `enforceRateLimit`, `ensureTables` e `request.json()` ficavam descobertas), fazendo a Cloudflare servir HTML 500 genérico em vez do nosso `jsonResponse`. O cliente caía em `res.json()` rejeitado e mostrava "Erro de rede". Handler passou a ser envolvido em try/catch top-level que retorna sempre JSON + `console.error` para Workers Logs.
+### Alterado
+- **Middleware resolve Secrets Store para `RESEND_API_KEY`**: `functions/_middleware.ts` passou a resolver também `RESEND_API_KEY` (além de `GEMINI_API_KEY`) quando estiver como binding do Secrets Store, corrigindo cenário silencioso em que `env.RESEND_API_KEY` era um objeto `{get()}` e o `Bearer [object Object]` falhava no Resend.
+- **`RESEND_API_KEY` só é exigida nos branches que enviam e-mail** (`save`, `request-token`, `request-delete-token`); `retrieve`, `verify-save`, `verify-delete` e `session-retrieve` deixaram de bloquear por falta dessa chave.
+- **Consumo atômico de OTP**: `UPDATE oraculo_auth_tokens SET used = 1 WHERE id = ? AND used = 0` + checagem de `meta.changes` para impedir dupla-consumação em requisições concorrentes.
+- **Hardening transversal (Fix D)**: `contato.ts`, `enviar-email.ts`, `analisar-ia.ts`, `tesouro-ipca-vision.ts` e `taxa-ipca-atual.ts` agora têm try/catch top-level + `console.error` + JSON genérico no catch.
+- **Cliente defensivo**: novo helper `src/lib/api.ts::fetchJson` confere `Content-Type: application/json` antes de `res.json()`, evitando mascarar falhas do servidor como "Erro de rede". Aplicado nos fluxos de auth do `App.tsx` (`autoRetrieve`, `handleAuthEmailSubmit`, `handleAuthTokenSubmit`).
+- **Testes de `requireAllowedOrigin`** atualizados para refletir o novo contrato: Origin válido + Sec-Fetch-Site seguro aceitam; Origin inválido, `cross-site` e ausência total rejeitam.
+### Motivação
+- **Origem da rodada**: dois erros em produção (`oraculo-financeiro.lcv.app.br`) reportados pelo usuário em 2026-04-24: 403 no GET `/api/taxa-ipca-atual` ao carregar o app e 500 no POST `/api/oraculo-auth` ao recuperar dados via código de e-mail.
+- **Diagnóstico cross-review**: sessão de cross-review (3 rounds, convergência alcançada). Probes diretos em produção confirmaram: 403 é o nosso `jsonResponse` com body `{"ok":false,"error":"Origem não permitida."}`; 500 é Cloudflare error 1101 com `Content-Type: text/plain` e body `"error code: 1101"`, ou seja, exceção não capturada no handler.
+
 ## [Security Publication Hardening] - 2026-04-23
 ### Segurança
 - Memórias e contexto interno de desenvolvimento passaram a ser apenas locais: padrões correspondentes adicionados ao ignore e removidos do índice Git com `git rm --cached`, preservando os arquivos no disco local.

@@ -11,18 +11,24 @@ interface Env {
 interface Ctx { env: Env; request: Request }
 
 export const onRequestPost = async ({ env, request }: Ctx) => {
-  const originError = requireAllowedOrigin(request)
-  if (originError) return originError
-
-  const rateLimitError = await enforceRateLimit(request, env.BIGDATA_DB, 'enviar_email')
-  if (rateLimitError) return rateLimitError
-
-  const envRec = env as unknown as Record<string, unknown>;
-  const apiKey = (env?.RESEND_API_KEY || envRec['RESEND_APP_KEY'] || envRec['RESEND_APPKEY'] || envRec['resend-api-key'] || envRec['resend-appkey']) as string;
-  if (!apiKey) return jsonResponse({ ok: false, error: 'RESEND_API_KEY não configurada.' }, 503)
-
   try {
-    const body = await request.json() as { emailDestino?: string; relatorioHtml?: string; relatorioTexto?: string }
+    const originError = requireAllowedOrigin(request)
+    if (originError) return originError
+
+    const rateLimitError = await enforceRateLimit(request, env.BIGDATA_DB, 'enviar_email')
+    if (rateLimitError) return rateLimitError
+
+    const envRec = env as unknown as Record<string, unknown>
+    const candidate = env?.RESEND_API_KEY || envRec['RESEND_APP_KEY'] || envRec['RESEND_APPKEY'] || envRec['resend-api-key'] || envRec['resend-appkey']
+    const apiKey = typeof candidate === 'string' && candidate.length > 0 ? candidate : null
+    if (!apiKey) return jsonResponse({ ok: false, error: 'Serviço de e-mail indisponível.' }, 503)
+
+    let body: { emailDestino?: string; relatorioHtml?: string; relatorioTexto?: string }
+    try {
+      body = await request.json() as typeof body
+    } catch {
+      return jsonResponse({ ok: false, error: 'Payload JSON inválido.' }, 400)
+    }
     const emailDestino = (body.emailDestino ?? '').trim()
     const relatorioHtml = sanitizeRichEmailHtml(body.relatorioHtml ?? '')
     const relatorioTexto = body.relatorioTexto ?? ''
@@ -52,9 +58,10 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
     if (res.ok) {
       return jsonResponse({ ok: true, message: 'E-mail enviado com sucesso!' })
     }
-    const data = await res.json() as Record<string, unknown>
-    return jsonResponse({ ok: false, error: String(data.message ?? 'Falha no envio.') }, 500)
-  } catch {
-    return jsonResponse({ ok: false, error: 'Falha interna na comunicação do e-mail.' }, 500)
+    const data = await res.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>
+    return jsonResponse({ ok: false, error: String(data.message ?? 'Falha no envio.') }, 502)
+  } catch (error) {
+    console.error('enviar-email:onRequestPost', error)
+    return jsonResponse({ ok: false, error: 'Erro interno.' }, 500)
   }
 }

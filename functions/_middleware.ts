@@ -1,5 +1,6 @@
 const SECRET_KEYS = [
-  'GEMINI_API_KEY'
+  'GEMINI_API_KEY',
+  'RESEND_API_KEY'
 ] as const;
 
 export async function onRequest(context: { request: Request; env: Record<string, unknown>; next: () => Promise<Response> }) {

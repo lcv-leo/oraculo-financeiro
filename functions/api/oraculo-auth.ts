@@ -1,7 +1,7 @@
 // Módulo: oraculo-financeiro/functions/api/oraculo-auth.ts
 // Descrição: Autenticação por e-mail + token OTP para persistência opt-in de dados.
 // Sessão: após OTP bem-sucedido, gera session token (UUID) com TTL de 60 minutos.
-// Bindings: BIGDATA_DB (D1), RESEND_API_KEY (env var)
+// Bindings: BIGDATA_DB (D1), RESEND_API_KEY (env var ou Secrets Store resolvido no _middleware.ts)
 
 import {
   enforceRateLimit,
@@ -25,6 +25,16 @@ function generateOTP(): string {
 }
 
 const SESSION_TTL_MS = 60 * 60 * 1000 // 60 minutos
+
+function resolveResendApiKey(env: Env): string | null {
+  const envRec = env as unknown as Record<string, unknown>
+  const candidate = env?.RESEND_API_KEY
+    || envRec['RESEND_APP_KEY']
+    || envRec['RESEND_APPKEY']
+    || envRec['resend-api-key']
+    || envRec['resend-appkey']
+  return typeof candidate === 'string' && candidate.length > 0 ? candidate : null
+}
 
 /** Gera um session token (UUID) com TTL de 60 minutos após OTP bem-sucedido */
 async function createSessionToken(db: Env['BIGDATA_DB'], email: string): Promise<string> {
@@ -63,7 +73,8 @@ async function sendTokenEmail(email: string, token: string, apiKey: string): Pro
       }),
     })
     return res.ok
-  } catch {
+  } catch (error) {
+    console.error('oraculo-auth:sendTokenEmail', error)
     return false
   }
 }
@@ -125,35 +136,50 @@ async function stampEmailOnRecords(db: Env['BIGDATA_DB'], email: string, dadosJs
 
 // ─── HANDLER ──────────────────────────────────────────────────────────────────
 
+const ACTIONS_REQUIRING_EMAIL = new Set([
+  'save',
+  'request-token',
+  'request-delete-token',
+])
+
 export const onRequestPost = async ({ env, request }: Ctx) => {
-  const originError = requireAllowedOrigin(request)
-  if (originError) return originError
-
-  const db = env?.BIGDATA_DB
-  if (!db || typeof db.prepare !== 'function') {
-    return jsonResponse({ ok: false, error: 'Database indisponível.' }, 503)
-  }
-
-  const rateLimitError = await enforceRateLimit(request, db, 'auth')
-  if (rateLimitError) return rateLimitError
-
-  const envRec = env as unknown as Record<string, unknown>
-  const apiKey = (env?.RESEND_API_KEY || envRec['RESEND_APP_KEY'] || envRec['RESEND_APPKEY'] || envRec['resend-api-key'] || envRec['resend-appkey']) as string
-  if (!apiKey) {
-    return jsonResponse({ ok: false, error: 'RESEND_API_KEY não configurada.' }, 503)
-  }
-
-  await ensureTables(db)
-
-  const body = await request.json() as { action: string; email?: string; token?: string; dados?: unknown }
-  const action = body.action
-  const email = (body.email ?? '').trim().toLowerCase()
-
-  if (!email || !email.includes('@')) {
-    return jsonResponse({ ok: false, error: 'E-mail inválido.' }, 400)
-  }
-
   try {
+    const originError = requireAllowedOrigin(request)
+    if (originError) return originError
+
+    const db = env?.BIGDATA_DB
+    if (!db || typeof db.prepare !== 'function') {
+      return jsonResponse({ ok: false, error: 'Database indisponível.' }, 503)
+    }
+
+    const rateLimitError = await enforceRateLimit(request, db, 'auth')
+    if (rateLimitError) return rateLimitError
+
+    await ensureTables(db)
+
+    let body: { action?: string; email?: string; token?: string; dados?: unknown }
+    try {
+      body = await request.json() as typeof body
+    } catch {
+      return jsonResponse({ ok: false, error: 'Payload JSON inválido.' }, 400)
+    }
+
+    const action = body.action
+    const email = (body.email ?? '').trim().toLowerCase()
+
+    if (!email || !email.includes('@')) {
+      return jsonResponse({ ok: false, error: 'E-mail inválido.' }, 400)
+    }
+
+    // RESEND_API_KEY só é necessária para ações que enviam e-mail.
+    let apiKey: string | null = null
+    if (action && ACTIONS_REQUIRING_EMAIL.has(action)) {
+      apiKey = resolveResendApiKey(env)
+      if (!apiKey) {
+        return jsonResponse({ ok: false, error: 'Serviço de e-mail indisponível.' }, 503)
+      }
+    }
+
     // ── SAVE: gera token → envia e-mail → salva dados temporariamente ───────
     if (action === 'save') {
       if (!body.dados) {
@@ -169,7 +195,7 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
         `INSERT INTO oraculo_auth_tokens (id, email, token, action, dados_json, expires_at) VALUES (?, ?, ?, 'save', ?, ?)`
       ).bind(id, email, tokenHash, JSON.stringify(body.dados), expiresAt).run()
 
-      const sent = await sendTokenEmail(email, token, apiKey)
+      const sent = await sendTokenEmail(email, token, apiKey as string)
       if (!sent) {
         return jsonResponse({ ok: false, error: 'Falha ao enviar e-mail. Tente novamente.' }, 502)
       }
@@ -184,8 +210,8 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
       const tokenHash = await hashToken(token)
 
       const row = await db.prepare(
-        `SELECT id, dados_json, expires_at FROM oraculo_auth_tokens 
-         WHERE email = ? AND token IN (? , ?) AND action = 'save' AND used = 0 
+        `SELECT id, dados_json, expires_at FROM oraculo_auth_tokens
+         WHERE email = ? AND token IN (? , ?) AND action = 'save' AND used = 0
          ORDER BY created_at DESC LIMIT 1`
       ).bind(email, token, tokenHash).first()
 
@@ -194,8 +220,13 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
         return jsonResponse({ ok: false, error: 'Código expirado. Solicite um novo.' }, 401)
       }
 
-      // Marcar token como usado
-      await db.prepare('UPDATE oraculo_auth_tokens SET used = 1 WHERE id = ?').bind(row.id).run()
+      // Consumo atômico do OTP (evita race em verificações concorrentes)
+      const consume = await db.prepare(
+        'UPDATE oraculo_auth_tokens SET used = 1 WHERE id = ? AND used = 0'
+      ).bind(row.id).run() as { meta?: { changes?: number } }
+      if (!consume?.meta || (consume.meta.changes ?? 0) === 0) {
+        return jsonResponse({ ok: false, error: 'Código já utilizado.' }, 401)
+      }
 
       // Upsert dados do usuário
       const existingData = await db.prepare('SELECT id FROM oraculo_user_data WHERE email = ? LIMIT 1').bind(email).first()
@@ -239,7 +270,7 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
         `INSERT INTO oraculo_auth_tokens (id, email, token, action, expires_at) VALUES (?, ?, ?, 'retrieve', ?)`
       ).bind(id, email, tokenHash, expiresAt).run()
 
-      const sent = await sendTokenEmail(email, token, apiKey)
+      const sent = await sendTokenEmail(email, token, apiKey as string)
       if (!sent) {
         return jsonResponse({ ok: false, error: 'Falha ao enviar e-mail. Tente novamente.' }, 502)
       }
@@ -254,8 +285,8 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
       const tokenHash = await hashToken(token)
 
       const row = await db.prepare(
-        `SELECT id, expires_at FROM oraculo_auth_tokens 
-         WHERE email = ? AND token IN (?, ?) AND action = 'retrieve' AND used = 0 
+        `SELECT id, expires_at FROM oraculo_auth_tokens
+         WHERE email = ? AND token IN (?, ?) AND action = 'retrieve' AND used = 0
          ORDER BY created_at DESC LIMIT 1`
       ).bind(email, token, tokenHash).first()
 
@@ -264,8 +295,12 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
         return jsonResponse({ ok: false, error: 'Código expirado. Solicite um novo.' }, 401)
       }
 
-      // Marcar token como usado
-      await db.prepare('UPDATE oraculo_auth_tokens SET used = 1 WHERE id = ?').bind(row.id).run()
+      const consume = await db.prepare(
+        'UPDATE oraculo_auth_tokens SET used = 1 WHERE id = ? AND used = 0'
+      ).bind(row.id).run() as { meta?: { changes?: number } }
+      if (!consume?.meta || (consume.meta.changes ?? 0) === 0) {
+        return jsonResponse({ ok: false, error: 'Código já utilizado.' }, 401)
+      }
 
       // Buscar dados
       const userData = await db.prepare(
@@ -281,15 +316,14 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
     }
 
     // ── SESSION-RETRIEVE: valida session token (sem OTP) → retorna dados ────
-    // Usado para restaurar dados após F5/reload sem exigir novo OTP.
     if (action === 'session-retrieve') {
       const sessionTokenInput = (body.token ?? '').trim()
       if (!sessionTokenInput) return jsonResponse({ ok: false, error: 'Session token não fornecido.' }, 400)
       const sessionTokenHash = await hashToken(sessionTokenInput)
 
       const row = await db.prepare(
-        `SELECT id, email, expires_at FROM oraculo_auth_tokens 
-         WHERE token IN (?, ?) AND action = 'session' AND used = 0 
+        `SELECT id, email, expires_at FROM oraculo_auth_tokens
+         WHERE token IN (?, ?) AND action = 'session' AND used = 0
          ORDER BY created_at DESC LIMIT 1`
       ).bind(sessionTokenInput, sessionTokenHash).first()
 
@@ -313,8 +347,13 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
 
       if (!userData) return jsonResponse({ ok: false, error: 'Nenhum dado encontrado.' }, 404)
 
-      // Renovar session token (gerar novo, invalidar antigo)
-      await db.prepare('UPDATE oraculo_auth_tokens SET used = 1 WHERE id = ?').bind(row.id).run()
+      // Renovar session token (gerar novo, invalidar antigo) — atômico
+      const consume = await db.prepare(
+        'UPDATE oraculo_auth_tokens SET used = 1 WHERE id = ? AND used = 0'
+      ).bind(row.id).run() as { meta?: { changes?: number } }
+      if (!consume?.meta || (consume.meta.changes ?? 0) === 0) {
+        return jsonResponse({ ok: false, error: 'Sessão já renovada em outra aba.' }, 401)
+      }
       const newSessionToken = await createSessionToken(db, email)
 
       return jsonResponse({ ok: true, dados: JSON.parse(userData.dados_json as string), sessionToken: newSessionToken })
@@ -339,7 +378,7 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
         `INSERT INTO oraculo_auth_tokens (id, email, token, action, expires_at) VALUES (?, ?, ?, 'delete', ?)`
       ).bind(id, email, tokenHash, expiresAt).run()
 
-      const sent = await sendTokenEmail(email, token, apiKey)
+      const sent = await sendTokenEmail(email, token, apiKey as string)
       if (!sent) {
         return jsonResponse({ ok: false, error: 'Falha ao enviar e-mail. Tente novamente.' }, 502)
       }
@@ -354,8 +393,8 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
       const tokenHash = await hashToken(token)
 
       const row = await db.prepare(
-        `SELECT id, expires_at FROM oraculo_auth_tokens 
-         WHERE email = ? AND token IN (?, ?) AND action = 'delete' AND used = 0 
+        `SELECT id, expires_at FROM oraculo_auth_tokens
+         WHERE email = ? AND token IN (?, ?) AND action = 'delete' AND used = 0
          ORDER BY created_at DESC LIMIT 1`
       ).bind(email, token, tokenHash).first()
 
@@ -364,8 +403,12 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
         return jsonResponse({ ok: false, error: 'Código expirado. Solicite um novo.' }, 401)
       }
 
-      // Marcar token como usado
-      await db.prepare('UPDATE oraculo_auth_tokens SET used = 1 WHERE id = ?').bind(row.id).run()
+      const consume = await db.prepare(
+        'UPDATE oraculo_auth_tokens SET used = 1 WHERE id = ? AND used = 0'
+      ).bind(row.id).run() as { meta?: { changes?: number } }
+      if (!consume?.meta || (consume.meta.changes ?? 0) === 0) {
+        return jsonResponse({ ok: false, error: 'Código já utilizado.' }, 401)
+      }
 
       // Cascata completa por email — todas as tabelas
       await db.prepare('DELETE FROM oraculo_tesouro_ipca_lotes WHERE email = ?').bind(email).run()
@@ -376,12 +419,9 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
       return jsonResponse({ ok: true, message: 'Todos os seus dados foram excluídos permanentemente.' })
     }
 
-    return jsonResponse({ ok: false, error: `Ação desconhecida: ${action}` }, 400)
-
+    return jsonResponse({ ok: false, error: `Ação desconhecida: ${action ?? ''}` }, 400)
   } catch (error) {
-    return jsonResponse({
-      ok: false,
-      error: error instanceof Error ? error.message : 'Erro interno.',
-    }, 500)
+    console.error('oraculo-auth:onRequestPost', error)
+    return jsonResponse({ ok: false, error: 'Erro interno.' }, 500)
   }
 }

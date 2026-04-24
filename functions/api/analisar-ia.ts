@@ -292,28 +292,30 @@ function logAiUsage(
 // ─── HANDLER PRINCIPAL ────────────────────────────────────────────────────────
 
 export const onRequestPost = async ({ env, request }: Context) => {
-  const originError = requireAllowedOrigin(request)
-  if (originError) return originError
-
-  const rateLimitError = await enforceRateLimit(request, env.BIGDATA_DB, 'analisar_ia')
-  if (rateLimitError) return rateLimitError
-
-  const envRec = env as unknown as Record<string, unknown>
-  const apiKey = (env?.GEMINI_API_KEY || envRec['GEMINI_APP_KEY'] || envRec['gemini-api-key'] || envRec['gemini-app-key']) as string
-  if (!apiKey) {
-    return jsonResponse({ ok: false, error: 'GEMINI_API_KEY não configurada no ambiente Cloudflare Pages.' }, 503)
-  }
-
-  let payload: Payload
   try {
-    payload = (await request.json()) as Payload
-  } catch {
-    return jsonResponse({ ok: false, error: 'Payload JSON inválido.' }, 400)
-  }
+    const originError = requireAllowedOrigin(request)
+    if (originError) return originError
 
-  if (!payload?.tipo || !['lci-lca', 'tesouro-ipca'].includes(payload.tipo)) {
-    return jsonResponse({ ok: false, error: 'Campo "tipo" inválido.' }, 400)
-  }
+    const rateLimitError = await enforceRateLimit(request, env.BIGDATA_DB, 'analisar_ia')
+    if (rateLimitError) return rateLimitError
+
+    const envRec = env as unknown as Record<string, unknown>
+    const candidate = env?.GEMINI_API_KEY || envRec['GEMINI_APP_KEY'] || envRec['gemini-api-key'] || envRec['gemini-app-key']
+    const apiKey = typeof candidate === 'string' && candidate.length > 0 ? candidate : null
+    if (!apiKey) {
+      return jsonResponse({ ok: false, error: 'Serviço de IA indisponível.' }, 503)
+    }
+
+    let payload: Payload
+    try {
+      payload = (await request.json()) as Payload
+    } catch {
+      return jsonResponse({ ok: false, error: 'Payload JSON inválido.' }, 400)
+    }
+
+    if (!payload?.tipo || !['lci-lca', 'tesouro-ipca'].includes(payload.tipo)) {
+      return jsonResponse({ ok: false, error: 'Campo "tipo" inválido.' }, 400)
+    }
 
   // Monta o prompt de usuário de acordo com o tipo
   const userPrompt = payload.tipo === 'lci-lca'
@@ -433,6 +435,9 @@ export const onRequestPost = async ({ env, request }: Context) => {
     // Persitência no D1 é secundária — não bloqueia a resposta ao client
   }
 
-  return jsonResponse({ ok: true, analise })
+    return jsonResponse({ ok: true, analise })
+  } catch (error) {
+    console.error('analisar-ia:onRequestPost', error)
+    return jsonResponse({ ok: false, error: 'Erro interno.' }, 500)
+  }
 }
-

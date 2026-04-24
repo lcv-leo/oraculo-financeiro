@@ -45,12 +45,22 @@ export function isAllowedLcvOrigin(origin: string) {
   return /^https:\/\/([a-z0-9-]+\.)*lcv\.app\.br$/i.test(origin.trim())
 }
 
+const SAFE_FETCH_SITES = new Set(['same-origin', 'same-site'])
+
 export function requireAllowedOrigin(request: Request) {
   const origin = String(request.headers.get('Origin') ?? '').trim()
-  if (!origin || !isAllowedLcvOrigin(origin)) {
-    return jsonResponse({ ok: false, error: 'Origem não permitida.' }, 403)
+  if (origin) {
+    return isAllowedLcvOrigin(origin)
+      ? null
+      : jsonResponse({ ok: false, error: 'Origem não permitida.' }, 403)
   }
-  return null
+
+  const fetchSite = String(request.headers.get('Sec-Fetch-Site') ?? '').trim().toLowerCase()
+  if (fetchSite && SAFE_FETCH_SITES.has(fetchSite)) {
+    return null
+  }
+
+  return jsonResponse({ ok: false, error: 'Origem não permitida.' }, 403)
 }
 
 export function getClientIp(request: Request) {

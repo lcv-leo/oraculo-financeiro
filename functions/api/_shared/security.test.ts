@@ -23,15 +23,32 @@ describe('security helpers', () => {
     expect(isAllowedLcvOrigin('https://evil.com')).toBe(false)
   })
 
-  it('bloqueia origem ausente ou não permitida', async () => {
-    const missingOrigin = requireAllowedOrigin(createRequest())
+  it('bloqueia origem explícita não permitida e aceita Origin válido', async () => {
     const invalidOrigin = requireAllowedOrigin(createRequest('https://evil.com'))
     const allowedOrigin = requireAllowedOrigin(createRequest('https://oraculo-financeiro.lcv.app.br'))
 
-    expect(missingOrigin?.status).toBe(403)
-    expect(await missingOrigin?.json()).toEqual({ ok: false, error: 'Origem não permitida.' })
     expect(invalidOrigin?.status).toBe(403)
+    expect(await invalidOrigin?.json()).toEqual({ ok: false, error: 'Origem não permitida.' })
     expect(allowedOrigin).toBeNull()
+  })
+
+  it('aceita request sem Origin quando Sec-Fetch-Site é same-origin ou same-site', () => {
+    const sameOrigin = requireAllowedOrigin(createRequest(undefined, { 'Sec-Fetch-Site': 'same-origin' }))
+    const sameSite = requireAllowedOrigin(createRequest(undefined, { 'Sec-Fetch-Site': 'same-site' }))
+
+    expect(sameOrigin).toBeNull()
+    expect(sameSite).toBeNull()
+  })
+
+  it('bloqueia request sem Origin e sem Sec-Fetch-Site seguro', async () => {
+    const noSignals = requireAllowedOrigin(createRequest())
+    const crossSite = requireAllowedOrigin(createRequest(undefined, { 'Sec-Fetch-Site': 'cross-site' }))
+    const none = requireAllowedOrigin(createRequest(undefined, { 'Sec-Fetch-Site': 'none' }))
+
+    expect(noSignals?.status).toBe(403)
+    expect(crossSite?.status).toBe(403)
+    expect(none?.status).toBe(403)
+    expect(await noSignals?.json()).toEqual({ ok: false, error: 'Origem não permitida.' })
   })
 
   it('gera JSON response com headers de segurança', async () => {

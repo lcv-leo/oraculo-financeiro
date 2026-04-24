@@ -75,30 +75,32 @@ function logAiUsage(
 // ─── HANDLER PRINCIPAL ────────────────────────────────────────────────────────
 
 export const onRequestPost = async ({ request, env }: Context) => {
-  const originError = requireAllowedOrigin(request)
-  if (originError) return originError
-
-  if (env.BIGDATA_DB) {
-    const rateLimitError = await enforceRateLimit(request, env.BIGDATA_DB, 'tesouro_ipca_vision')
-    if (rateLimitError) return rateLimitError
-  }
-
-  const envRec = env as unknown as Record<string, unknown>
-  const apiKey = (env?.GEMINI_API_KEY || envRec['GEMINI_APP_KEY'] || envRec['gemini-api-key'] || envRec['gemini-app-key']) as string
-  if (!apiKey) {
-    return jsonResponse({ ok: false, error: 'GEMINI_API_KEY não configurada no ambiente Cloudflare Pages.' }, 503)
-  }
-
-  let payload: { imageBase64: string; mimeType: string }
   try {
-    payload = await request.json() as { imageBase64: string; mimeType: string }
-  } catch {
-    return jsonResponse({ ok: false, error: 'Payload JSON inválido.' }, 400)
-  }
+    const originError = requireAllowedOrigin(request)
+    if (originError) return originError
 
-  if (!payload.imageBase64 || !payload.mimeType) {
-    return jsonResponse({ ok: false, error: 'Arquivo base64 e mimeType são obrigatórios.' }, 400)
-  }
+    if (env.BIGDATA_DB) {
+      const rateLimitError = await enforceRateLimit(request, env.BIGDATA_DB, 'tesouro_ipca_vision')
+      if (rateLimitError) return rateLimitError
+    }
+
+    const envRec = env as unknown as Record<string, unknown>
+    const candidate = env?.GEMINI_API_KEY || envRec['GEMINI_APP_KEY'] || envRec['gemini-api-key'] || envRec['gemini-app-key']
+    const apiKey = typeof candidate === 'string' && candidate.length > 0 ? candidate : null
+    if (!apiKey) {
+      return jsonResponse({ ok: false, error: 'Serviço de IA indisponível.' }, 503)
+    }
+
+    let payload: { imageBase64: string; mimeType: string }
+    try {
+      payload = await request.json() as { imageBase64: string; mimeType: string }
+    } catch {
+      return jsonResponse({ ok: false, error: 'Payload JSON inválido.' }, 400)
+    }
+
+    if (!payload.imageBase64 || !payload.mimeType) {
+      return jsonResponse({ ok: false, error: 'Arquivo base64 e mimeType são obrigatórios.' }, 400)
+    }
 
   const systemInstruction = `Você é um consultor financeiro especialista em marcação a mercado do Tesouro Direto brasileiro.
 Extraia TODOS os lotes de investimento do extrato do Tesouro IPCA+ enviado na imagem ou PDF.
@@ -242,6 +244,9 @@ Regras de Extração e Conversão:
     return jsonResponse({ ok: false, error: 'A IA não retornou um formato JSON válido.', raw: rawText.slice(0, 500) }, 500)
   }
 
-  return jsonResponse({ ok: true, data: extractedData })
+    return jsonResponse({ ok: true, data: extractedData })
+  } catch (error) {
+    console.error('tesouro-ipca-vision:onRequestPost', error)
+    return jsonResponse({ ok: false, error: 'Erro interno.' }, 500)
+  }
 }
-
