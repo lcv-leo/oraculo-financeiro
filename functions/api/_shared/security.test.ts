@@ -79,7 +79,8 @@ describe('security helpers', () => {
     expect(sanitized).not.toContain('<iframe')
     expect(sanitized).not.toContain('onclick=')
     expect(sanitized).not.toContain('javascript:')
-    expect(sanitized).toContain('<div><a href="alert(2)">ok</a></div>')
+    expect(sanitized).not.toContain('alert(')
+    expect(sanitized).toContain('<a>ok</a>')
   })
 
   it('gera hash determinístico para tokens', async () => {

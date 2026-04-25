@@ -1,5 +1,14 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.10.01] - 2026-04-25
+### Public Flip Prep (Phase 2)
+- **Repo público**: README reescrito como documentação fork-friendly; AGPL-3.0-or-later confirmada (LICENSE + frontmatter); FUNDING.yml + Sponsorship habilitada; rulesets do GitHub aplicados (10 itens do baseline de hardening).
+- **D1 placeholder**: `wrangler.json` (Pages) e `workers/taxaipca-motor/wrangler.json` (Cron Worker) passaram a usar `database_id` nil-UUID (`00000000-0000-0000-0000-000000000000`); o ID real é injetado em deploy via secret `D1_DATABASE_ID` no GitHub Actions com substituição `jq` em ambos os arquivos.
+- **Cron Trigger versionado**: `workers/taxaipca-motor/wrangler.json` agora declara `triggers.crons: ["0 5 * * *"]` (02h BRT / 05h UTC, alinhado com a documentação do README).
+- **Bootstrap consistente**: `scripts/setup-d1.ps1` e `package.json` (`d1:migrate`) passaram a usar `bigdata_db` + binding `BIGDATA_DB`, em paridade com `wrangler.json` e o restante do workspace; o setup script agora valida ambos os `wrangler.json` (root + worker).
+- **Sanitização HTML parser-based**: `enviar-email.ts` migrou de regex para `sanitize-html` (allowlist de tags/atributos); `THIRDPARTY.md` atualizado.
+- **Histórico Git**: residuals de prefixos internos (memória/sessão) e fragmentos de UUID anteriores foram limpos do histórico via `git filter-repo` antes do flip público.
+
 ## [v01.10.00] - 2026-04-24
 ### Corrigido
 - **GET `/api/taxa-ipca-atual` → 403 no carregamento do app**: `requireAllowedOrigin` ficou incompatível com browsers em GET same-origin (Chrome/Firefox/Safari não enviam header `Origin` em GET same-origin, apenas em métodos não-safe). O helper agora aceita Origin ausente quando `Sec-Fetch-Site` é `same-origin`/`same-site`; rejeita `cross-site` e ausência de ambos sinais.
