@@ -67,3 +67,7 @@ test-results/
 AGENTS.md
 GEMINI.md
 .github/copilot-instructions.md
+
+# Phase 1 audit additions: schema dumps banned (db/*.sql migrations preserved as essential)
+schema.sql
+**/schema.sql
