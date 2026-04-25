@@ -31,6 +31,24 @@ jobs:
       - run: npm install
       - run: npm run build
 
+      - name: Inject D1 database_id from secret (root + workers/taxaipca-motor)
+        run: |
+          if [ -z "${D1_DATABASE_ID:-}" ]; then
+            echo "::error::D1_DATABASE_ID secret is not set" >&2
+            exit 1
+          fi
+          for CFG in wrangler.json workers/taxaipca-motor/wrangler.json; do
+            jq --arg id "$D1_DATABASE_ID" '.d1_databases[0].database_id = $id' "$CFG" > "$CFG.tmp"
+            mv "$CFG.tmp" "$CFG"
+            grep -q "$D1_DATABASE_ID" "$CFG" || { echo "::error::Substitution failed in $CFG" >&2; exit 1; }
+            if grep -q "00000000-0000-0000-0000-000000000000" "$CFG"; then
+              echo "::error::Placeholder still present in $CFG" >&2
+              exit 1
+            fi
+          done
+        env:
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+
       - run: npx wrangler@${WRANGLER_VERSION} pages deploy dist --project-name=oraculo-financeiro --branch=main
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
