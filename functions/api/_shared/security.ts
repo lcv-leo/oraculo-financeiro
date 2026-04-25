@@ -176,13 +176,26 @@ export function escapeHtml(value: string) {
     .replace(/'/g, '&#39;')
 }
 
+import sanitizeHtml from 'sanitize-html'
+
 export function sanitizeRichEmailHtml(input: string) {
-  return input
-    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
-    .replace(/<iframe[\s\S]*?>[\s\S]*?<\/iframe>/gi, '')
-    .replace(/<object[\s\S]*?>[\s\S]*?<\/object>/gi, '')
-    .replace(/<embed[\s\S]*?>[\s\S]*?<\/embed>/gi, '')
-    .replace(/\son[a-z]+\s*=\s*(".*?"|'.*?'|[^\s>]+)/gi, '')
-    .replace(/javascript:/gi, '')
-    .slice(0, 120000)
+  return sanitizeHtml(String(input ?? '').slice(0, 120000), {
+    allowedTags: [
+      'p', 'div', 'span', 'br', 'hr',
+      'strong', 'b', 'em', 'i', 'u', 's',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'ul', 'ol', 'li',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      'a', 'img'
+    ],
+    allowedAttributes: {
+      '*': ['style', 'class'],
+      a: ['href', 'target', 'rel'],
+      img: ['src', 'alt', 'width', 'height']
+    },
+    allowedSchemes: ['http', 'https', 'mailto'],
+    allowedSchemesByTag: { img: ['http', 'https', 'data'] },
+    disallowedTagsMode: 'discard',
+    allowProtocolRelative: false
+  })
 }
