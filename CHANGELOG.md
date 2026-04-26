@@ -1,5 +1,12 @@
 # Changelog — Oráculo Financeiro
 
+## [v01.10.02] - 2026-04-26
+### Alterado
+- **`.github/workflows/pages.yml`** — `actions/configure-pages@v6.0.0` passou a declarar `with: enablement: true` para idempotência em forks/clones que ainda não tenham GitHub Pages habilitado (corrige `Get Pages site failed... HTTP 404` em primeiro run).
+- **CI/Pages modernization** — workflows migraram de `gh-pages` legacy branch para o padrão atual (artifact deployment via `configure-pages` + `upload-pages-artifact` + `deploy-pages`, todos SHA-pinned).
+### Validação
+- Trilateral cross-review session `08bc6b9a-f3f5-434d-8276-2b21f562a843` (caller + Codex + Gemini) **READY**: paridade confirmada nos 9 repos públicos do workspace em security baseline, repo features, workflow perms, branch rulesets, Pages deployment, CodeQL Default Setup, 0 alertas abertos.
+
 ## [v01.10.01] - 2026-04-25
 ### Public Flip Prep (Phase 2)
 - **Repo público**: README reescrito como documentação fork-friendly; AGPL-3.0-or-later confirmada (LICENSE + frontmatter); FUNDING.yml + Sponsorship habilitada; rulesets do GitHub aplicados (10 itens do baseline de hardening).
