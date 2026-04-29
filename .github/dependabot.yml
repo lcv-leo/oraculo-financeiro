@@ -4,7 +4,7 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
-      time: "07:40"
+      time: "03:00"
       timezone: "America/Sao_Paulo"
     labels:
       - "dependencies"
@@ -18,7 +18,7 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
-      time: "08:00"
+      time: "03:00"
       timezone: "America/Sao_Paulo"
     labels:
       - "dependencies"
