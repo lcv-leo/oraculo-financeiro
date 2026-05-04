@@ -24,7 +24,9 @@
     "test": "vitest run",
     "d1:setup": "pwsh -ExecutionPolicy Bypass -File ./scripts/setup-d1.ps1",
     "d1:migrate": "npx --yes wrangler@latest d1 execute bigdata_db --remote --file db/001_init.sql ; npx --yes wrangler@latest d1 execute bigdata_db --remote --file db/002_tesouro_ipca_lotes.sql",
-    "format": "biome format --write src"
+    "format": "biome format --write src",
+    "format:public": "prettier --write \"**/README.md\" \"**/index.html\"",
+    "format:public:check": "prettier --check \"**/README.md\" \"**/index.html\""
   },
   "dependencies": {
     "@google/genai": "^1.51.0",
@@ -48,7 +50,8 @@
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.59.1",
     "vite": "^8.0.10",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.5",
+    "prettier": "^3.8.3"
   },
   "overrides": {
     "picomatch": "4.0.4",
