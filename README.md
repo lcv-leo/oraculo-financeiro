@@ -141,7 +141,7 @@ This repo's [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) runs 
 - **License**: [AGPL-3.0-or-later](./LICENSE). Network-service trigger applies — running a modified fork as a public service obligates you to publish modifications. See AGPL §13 source-offer below.
 - **Security disclosure**: see [SECURITY.md](./SECURITY.md).
 - **Changelog**: [CHANGELOG.md](./CHANGELOG.md).
-- **Sponsorship**: see the repo's `Sponsor` button or [GitHub Sponsors profile](https://github.com/sponsors/lcv-leo).
+- **Sponsorship**: see the repo's `Sponsor` button or [GitHub Sponsors profile](https://github.com/sponsors/LCV-Ideas-Software).
 - **Action pinning**: all GitHub Actions are pinned by full SHA per supply-chain hardening baseline.
 - **Code owners**: [.github/CODEOWNERS](./.github/CODEOWNERS).
 
@@ -161,3 +161,7 @@ If you operate a modified copy of this app as a publicly-accessible network serv
 - A `GET /source` route in `functions/api/` returning your fork's URL as `text/plain`.
 
 If you only deploy this app for your own infrastructure (no external users), §13 does not apply.
+
+---
+
+<p align="center"><sub>© LCV Ideas &amp; Software<br>LEONARDO CARDOZO VARGAS TECNOLOGIA DA INFORMACAO LTDA<br>Rua Pais Leme, 215 Conj 1713  - Pinheiros<br>São Paulo - SP<br>CEP 05.424-150<br>CNPJ: 66.584.678/0001-77<br>IM 05.424-150</sub></p>
