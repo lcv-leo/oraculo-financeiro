@@ -29,7 +29,7 @@
     "format:public:check": "prettier --check \"**/index.html\""
   },
   "dependencies": {
-    "@google/genai": "^1.51.0",
+    "@google/genai": "^1.52.0",
     "lucide-react": "^1.14.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
