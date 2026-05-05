@@ -16,12 +16,12 @@
 
 The version history at a glance:
 
-| Release         | Scope                                                                                                                                                                                                                                                                                         |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Release | Scope |
+|---|---|
 | **`v01.10.03`** | **README organizational standardization.** Adopted the shared repository README opening pattern, corrected public release and clone links to the organization, surfaced the top-level version-history table, and kept the GitHub Sponsors link on `lcv-leo` by explicit beneficiary decision. |
-| **`v01.10.02`** | **Pages modernization.** Migrated fully to the current GitHub Pages artifact-deployment model and enabled idempotent Pages setup for fresh clones/forks.                                                                                                                                      |
-| **`v01.10.01`** | **Public flip prep.** Finalized repo-publication hygiene, D1 placeholder injection, Cron trigger versioning, bootstrap consistency, and parser-based HTML sanitization.                                                                                                                       |
-| **`v01.10.00`** | **Critical runtime fixes.** Fixed same-origin GET origin handling, stabilized JSON error responses in auth handlers, and improved public endpoint resilience.                                                                                                                                 |
+| **`v01.10.02`** | **Pages modernization.** Migrated fully to the current GitHub Pages artifact-deployment model and enabled idempotent Pages setup for fresh clones/forks. |
+| **`v01.10.01`** | **Public flip prep.** Finalized repo-publication hygiene, D1 placeholder injection, Cron trigger versioning, bootstrap consistency, and parser-based HTML sanitization. |
+| **`v01.10.00`** | **Critical runtime fixes.** Fixed same-origin GET origin handling, stabilized JSON error responses in auth handlers, and improved public endpoint resilience. |
 
 ## What it does
 
@@ -34,7 +34,6 @@ Aplicação para analisar e comparar produtos de renda fixa atrelados ao IPCA:
 5. **Cron Worker** (`workers/taxaipca-motor`): pre-warm diário (02h BRT) de cache IPCA+ a partir do CSV do Tesouro Transparente, garantindo que requests síncronos não dependam de fetch live.
 
 Funcionalidades adicionais:
-
 - **Auth opcional** (`oraculo-auth.ts`): resgate por e-mail/código para recuperar registros previamente salvos.
 - **Compartilhamento via e-mail** (`enviar-email.ts`) com sanitização parser-based (sanitize-html).
 - **Rate limiting por D1** (`_shared/security.ts`): proteção contra abuso de endpoints públicos.
@@ -66,7 +65,6 @@ Browser -> Cloudflare Pages (React build)
 ## Deploy your own fork
 
 You will need:
-
 - A Cloudflare account ([free tier](https://www.cloudflare.com/plans/)) with Pages + D1 + Workers enabled.
 - The Cloudflare CLI [`wrangler`](https://developers.cloudflare.com/workers/wrangler/).
 - Node.js 22+.
@@ -91,7 +89,6 @@ npx wrangler d1 create bigdata_db
 ### 3. Wire the database_id into both wrangler.json files
 
 Replace the placeholder `00000000-0000-0000-0000-000000000000` in:
-
 - `wrangler.json` (Pages app at root)
 - `workers/taxaipca-motor/wrangler.json` (Cron Worker — same D1 binding)
 
@@ -101,9 +98,9 @@ Replace the placeholder `00000000-0000-0000-0000-000000000000` in:
     {
       "binding": "BIGDATA_DB",
       "database_name": "bigdata_db",
-      "database_id": "<your-d1-id-from-step-2>",
-    },
-  ],
+      "database_id": "<your-d1-id-from-step-2>"
+    }
+  ]
 }
 ```
 
