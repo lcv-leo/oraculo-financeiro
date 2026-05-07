@@ -1,5 +1,9 @@
 # Changelog — Oráculo Financeiro
 
+## [Unreleased]
+### Alterado
+- site/index.html deixou de carregar o widget/SDK SumUp e passou a encaminhar apoios para https://www.lcv.dev/sponsor?project=oraculo-financeiro, com backend dedicado sponsor-motor via Mercado Pago Checkout Pro.
+
 ## [v01.10.03] - 2026-04-30
 ### Alterado
 - `README.md` passou a seguir o novo padrão organizacional de abertura: logo harmonizado, bloco curto de status, tabela `The version history at a glance`, links públicos de release/clone corrigidos para `LCV-Ideas-Software/oraculo-financeiro` e manutenção explícita do GitHub Sponsors em `lcv-leo`.
