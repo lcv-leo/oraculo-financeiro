@@ -29,7 +29,7 @@ import {
 } from './lib/finance'
 import { fetchJson } from './lib/api'
 
-const APP_VERSION = 'APP v01.10.04'
+const APP_VERSION = 'APP v01.10.05'
 
 type TabId = 'lci-lca' | 'tesouro-ipca'
 

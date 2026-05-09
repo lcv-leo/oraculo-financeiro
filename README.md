@@ -12,12 +12,13 @@
 
 **Oráculo Financeiro** — dashboard de análise financeira focado em renda fixa indexada à inflação (LCI/CDB com IPCA+, Tesouro IPCA+ etc.) com análise contextual via Gemini AI. React 19 + Vite 8 sobre Cloudflare Pages com D1 backing store + Cron Worker auxiliar para pre-warming de cache de taxa.
 
-**Status.** Stable. Current release: **v01.10.04**. See [CHANGELOG.md](./CHANGELOG.md) for the full release history.
+**Status.** Stable. Current release: **v01.10.05**. See [CHANGELOG.md](./CHANGELOG.md) for the full release history.
 
 The version history at a glance:
 
 | Release | Scope |
 |---|---|
+| **`v01.10.05`** | **Site sponsor card iteration.** `site/index.html` GitHub Sponsors iframe (caixa branca cross-origin) substituído por link card dark navy com ❤ pink + meta cyan + seta animada; card movido para DEPOIS dos botões (lcv.dev/sponsor primário, GitHub Sponsors alternativa). Companion ship Phase 3 (12 repos). |
 | **`v01.10.04`** | **Site visual identity refresh.** `site/index.html` (GitHub Pages) reskinneada para a nova identidade dark-first navy/cyan da org LCV (`#050b18`/`#38bdf8`/`#34d399`, gradientes radiais, glow shadows, gradient text no h1). Coordinated Phase 2 companion ship (calculadora, oraculo, astrologo, admin, mainsite, maestro, mtasts). Sem mudança no app runtime. |
 | **`v01.10.03`** | **README organizational standardization.** Adopted the shared repository README opening pattern, corrected public release and clone links to the organization, surfaced the top-level version-history table, and kept the GitHub Sponsors link on `lcv-leo` by explicit beneficiary decision. |
 | **`v01.10.02`** | **Pages modernization.** Migrated fully to the current GitHub Pages artifact-deployment model and enabled idempotent Pages setup for fresh clones/forks. |
