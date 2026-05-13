@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [v01.10.06] - 2026-05-13
+### Corrigido
+- **npm registry split para StepSecurity** — scripts operacionais de Wrangler (`d1:setup`, `d1:migrate`) agora forçam `https://registry.npmjs.org/` via `npx --registry`, preservando o proxy StepSecurity apenas para instalação/atualização de dependências. Isso evita que a configuração `.npmrc` de instalação interfira em comandos operacionais do npm/npx.
+
 ## [v01.10.05] - 2026-05-09
 ### Alterado
 - **`site/index.html`** — iframe `github.com/sponsors/.../card` (caixa branca cross-origin) substituído por link card dark navy com ❤ pink + meta cyan + seta animada; card movido para DEPOIS dos botões (lcv.dev/sponsor primário, GitHub Sponsors alternativa). Companion ship Phase 3 (12 repos).
