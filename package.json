@@ -1,6 +1,6 @@
 {
   "name": "oraculo-financeiro",
-  "version": "1.10.6",
+  "version": "1.10.7",
   "description": "Oráculo Financeiro — dashboard de análise financeira (LCI/CDB, IPCA+, Tesouro Direto) com IA Gemini para análise contextual. React 19 + Vite 8 sobre Cloudflare Pages com D1 backing store.",
   "license": "AGPL-3.0-or-later",
   "author": "Leonardo Cardozo Vargas (lcv-leo)",
@@ -20,6 +20,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "biome": "biome check .",
+    "biome:write": "biome check --write .",
     "preview": "vite preview",
     "test": "vitest run",
     "d1:setup": "pwsh -ExecutionPolicy Bypass -File ./scripts/setup-d1.ps1",

@@ -5,31 +5,31 @@
 // Cache: D1 (oraculo_taxa_ipca_cache) — evita download de ~13 MB a cada request.
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
-import { enforceRateLimit, jsonResponse, requireAllowedOrigin, type D1DatabaseLike } from './_shared/security'
+import { type D1DatabaseLike, enforceRateLimit, jsonResponse, requireAllowedOrigin } from './_shared/security';
 
 interface Env {
-  BIGDATA_DB: D1DatabaseLike
+  BIGDATA_DB: D1DatabaseLike;
 }
 
 interface Context {
-  env: Env
-  request: Request
+  env: Env;
+  request: Request;
 }
 
 interface TaxaIpcaCache {
-  data_referencia: string
-  taxa_indicativa: number
-  vencimentos_json: string
-  atualizado_em: string
+  data_referencia: string;
+  taxa_indicativa: number;
+  vencimentos_json: string;
+  atualizado_em: string;
 }
 
 interface TituloTD {
-  tipo: string
-  vencimento: string
-  dataBase: string
-  taxaCompra: number
-  taxaVenda: number
-  pu: number
+  tipo: string;
+  vencimento: string;
+  dataBase: string;
+  taxaCompra: number;
+  taxaVenda: number;
+  pu: number;
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -47,91 +47,96 @@ interface TituloTD {
  * ATENÇÃO: dados NÃO são cronológicos — precisa scan completo.
  */
 function parseCSV(csvText: string): TituloTD[] {
-  const clean = csvText.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-  const lines = clean.trim().split('\n')
-  if (lines.length < 2) return []
+  const clean = csvText
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
+  const lines = clean.trim().split('\n');
+  if (lines.length < 2) return [];
 
   // Converter data BR (dd/mm/yyyy) para comparável (yyyymmdd)
   function dateKey(dataBR: string): string {
-    const [d, m, y] = dataBR.split('/')
-    return `${y}${m}${d}`
+    const [d, m, y] = dataBR.split('/');
+    return `${y}${m}${d}`;
   }
 
   // Passo 1: scan completo para encontrar a data base mais recente
-  let latestDateKey = ''
-  let latestDateBR = ''
+  let latestDateKey = '';
+  let latestDateBR = '';
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(';')
-    if (cols.length < 5) continue
-    const dataBase = cols[2]?.trim() ?? ''
-    if (!dataBase || !dataBase.includes('/')) continue
-    const dk = dateKey(dataBase)
+    const cols = lines[i].split(';');
+    if (cols.length < 5) continue;
+    const dataBase = cols[2]?.trim() ?? '';
+    if (!dataBase?.includes('/')) continue;
+    const dk = dateKey(dataBase);
     if (dk > latestDateKey) {
-      latestDateKey = dk
-      latestDateBR = dataBase
+      latestDateKey = dk;
+      latestDateBR = dataBase;
     }
   }
 
-  if (!latestDateBR) return []
+  if (!latestDateBR) return [];
 
   // Passo 2: coletar IPCA+ Principal na data mais recente
-  const results: TituloTD[] = []
+  const results: TituloTD[] = [];
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(';')
-    if (cols.length < 5) continue
+    const cols = lines[i].split(';');
+    if (cols.length < 5) continue;
 
-    const tipoTitulo = cols[0].trim()
-    const dataVencimento = cols[1]?.trim() ?? ''
-    const dataBase = cols[2]?.trim() ?? ''
-    const taxaCompra = parseFloat((cols[3] ?? '0').replace(',', '.'))
-    const taxaVenda = parseFloat((cols[4] ?? '0').replace(',', '.'))
-    const puCompra = parseFloat((cols[5] ?? '0').replace(',', '.'))
+    const tipoTitulo = cols[0].trim();
+    const dataVencimento = cols[1]?.trim() ?? '';
+    const dataBase = cols[2]?.trim() ?? '';
+    const taxaCompra = parseFloat((cols[3] ?? '0').replace(',', '.'));
+    const taxaVenda = parseFloat((cols[4] ?? '0').replace(',', '.'));
+    const puCompra = parseFloat((cols[5] ?? '0').replace(',', '.'));
 
-    if (dataBase !== latestDateBR) continue
+    if (dataBase !== latestDateBR) continue;
 
     // Filtrar: Tesouro IPCA+ (principal) — exclui "com Juros Semestrais"
-    if (tipoTitulo !== 'Tesouro IPCA+') continue
+    if (tipoTitulo !== 'Tesouro IPCA+') continue;
 
     results.push({
       tipo: tipoTitulo,
       vencimento: dataVencimento,
       dataBase,
-      taxaCompra: isNaN(taxaCompra) ? 0 : taxaCompra,
-      taxaVenda: isNaN(taxaVenda) ? 0 : taxaVenda,
-      pu: isNaN(puCompra) ? 0 : puCompra,
-    })
+      taxaCompra: Number.isNaN(taxaCompra) ? 0 : taxaCompra,
+      taxaVenda: Number.isNaN(taxaVenda) ? 0 : taxaVenda,
+      pu: Number.isNaN(puCompra) ? 0 : puCompra,
+    });
   }
-  return results
+  return results;
 }
 
 // ─── HANDLER ──────────────────────────────────────────────────────────────────
 
 export const onRequestGet = async ({ env, request }: Context) => {
   try {
-    const originError = requireAllowedOrigin(request)
-    if (originError) return originError
+    const originError = requireAllowedOrigin(request);
+    if (originError) return originError;
 
-    const db = env?.BIGDATA_DB
+    const db = env?.BIGDATA_DB;
     if (!db || typeof db.prepare !== 'function') {
-      return jsonResponse({ ok: false, error: 'Database binding (BIGDATA_DB) indisponível.' }, 503)
+      return jsonResponse({ ok: false, error: 'Database binding (BIGDATA_DB) indisponível.' }, 503);
     }
 
     // Suporte a ?force=true para bypass do cache (trigger manual via admin-app)
-    const url = new URL(request.url)
-    const forceRefresh = url.searchParams.get('force') === 'true'
+    const url = new URL(request.url);
+    const forceRefresh = url.searchParams.get('force') === 'true';
 
     if (forceRefresh) {
-      const rateLimitError = await enforceRateLimit(request, db, 'taxa_ipca_force_refresh')
-      if (rateLimitError) return rateLimitError
+      const rateLimitError = await enforceRateLimit(request, db, 'taxa_ipca_force_refresh');
+      if (rateLimitError) return rateLimitError;
     }
 
-
     // ── 1. Verificar cache D1 (válido se atualizado hoje) ───────────────────
-    const hoje = new Date().toISOString().slice(0, 10)
+    const hoje = new Date().toISOString().slice(0, 10);
 
-    const cacheRow = await db.prepare(
-      'SELECT data_referencia, taxa_indicativa, vencimentos_json, atualizado_em FROM oraculo_taxa_ipca_cache WHERE id = ? LIMIT 1'
-    ).bind('latest').first<TaxaIpcaCache>()
+    const cacheRow = await db
+      .prepare(
+        'SELECT data_referencia, taxa_indicativa, vencimentos_json, atualizado_em FROM oraculo_taxa_ipca_cache WHERE id = ? LIMIT 1',
+      )
+      .bind('latest')
+      .first<TaxaIpcaCache>();
 
     if (!forceRefresh && cacheRow && cacheRow.atualizado_em?.startsWith(hoje)) {
       // Cache válido — retornar sem baixar CSV
@@ -141,13 +146,14 @@ export const onRequestGet = async ({ env, request }: Context) => {
         dataReferencia: cacheRow.data_referencia,
         taxaMediaIndicativa: cacheRow.taxa_indicativa,
         titulos: JSON.parse(cacheRow.vencimentos_json),
-      })
+      });
     }
 
     // ── 2. Baixar CSV do Tesouro Transparente ────────────────────────────────
-    const csvUrl = 'https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/precotaxatesourodireto.csv'
+    const csvUrl =
+      'https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/precotaxatesourodireto.csv';
 
-    const csvRes = await fetch(csvUrl)
+    const csvRes = await fetch(csvUrl);
     if (!csvRes.ok) {
       // Se falhar e tiver cache antigo, retornar o cache
       if (cacheRow) {
@@ -157,15 +163,18 @@ export const onRequestGet = async ({ env, request }: Context) => {
           dataReferencia: cacheRow.data_referencia,
           taxaMediaIndicativa: cacheRow.taxa_indicativa,
           titulos: JSON.parse(cacheRow.vencimentos_json),
-        })
+        });
       }
-      return jsonResponse({ ok: false, error: `Falha ao baixar CSV do Tesouro Transparente (HTTP ${csvRes.status}).` }, 502)
+      return jsonResponse(
+        { ok: false, error: `Falha ao baixar CSV do Tesouro Transparente (HTTP ${csvRes.status}).` },
+        502,
+      );
     }
 
-    const csvText = await csvRes.text()
+    const csvText = await csvRes.text();
 
     // ── 3. Parsear CSV e extrair NTN-B mais recentes ─────────────────────────
-    const titulos = parseCSV(csvText)
+    const titulos = parseCSV(csvText);
 
     if (titulos.length === 0) {
       if (cacheRow) {
@@ -175,29 +184,40 @@ export const onRequestGet = async ({ env, request }: Context) => {
           dataReferencia: cacheRow.data_referencia,
           taxaMediaIndicativa: cacheRow.taxa_indicativa,
           titulos: JSON.parse(cacheRow.vencimentos_json),
-        })
+        });
       }
-      return jsonResponse({ ok: false, error: 'Nenhum título IPCA+ encontrado no CSV.' }, 404)
+      return jsonResponse({ ok: false, error: 'Nenhum título IPCA+ encontrado no CSV.' }, 404);
     }
 
     // ── 4. Calcular taxa média e salvar no cache D1 ──────────────────────────
     // Usar taxaCompra como referência (é a taxa que o investidor contrata na compra)
-    const taxasValidas = titulos.filter((t) => t.taxaCompra > 0)
-    const taxaMedia = taxasValidas.length > 0
-      ? Math.round(taxasValidas.reduce((sum, t) => sum + t.taxaCompra, 0) / taxasValidas.length * 100) / 100
-      : 0
+    const taxasValidas = titulos.filter((t) => t.taxaCompra > 0);
+    const taxaMedia =
+      taxasValidas.length > 0
+        ? Math.round((taxasValidas.reduce((sum, t) => sum + t.taxaCompra, 0) / taxasValidas.length) * 100) / 100
+        : 0;
 
-    const dataRef = titulos[0].dataBase
-    const vencimentosJson = JSON.stringify(titulos)
+    const dataRef = titulos[0].dataBase;
+    const vencimentosJson = JSON.stringify(titulos);
 
-    await db.prepare(
-      `INSERT INTO oraculo_taxa_ipca_cache (id, data_referencia, taxa_indicativa, vencimentos_json, atualizado_em)
+    await db
+      .prepare(
+        `INSERT INTO oraculo_taxa_ipca_cache (id, data_referencia, taxa_indicativa, vencimentos_json, atualizado_em)
        VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET data_referencia = ?, taxa_indicativa = ?, vencimentos_json = ?, atualizado_em = ?`
-    ).bind(
-      'latest', dataRef, taxaMedia, vencimentosJson, new Date().toISOString(),
-      dataRef, taxaMedia, vencimentosJson, new Date().toISOString()
-    ).run()
+       ON CONFLICT(id) DO UPDATE SET data_referencia = ?, taxa_indicativa = ?, vencimentos_json = ?, atualizado_em = ?`,
+      )
+      .bind(
+        'latest',
+        dataRef,
+        taxaMedia,
+        vencimentosJson,
+        new Date().toISOString(),
+        dataRef,
+        taxaMedia,
+        vencimentosJson,
+        new Date().toISOString(),
+      )
+      .run();
 
     return jsonResponse({
       ok: true,
@@ -205,9 +225,9 @@ export const onRequestGet = async ({ env, request }: Context) => {
       dataReferencia: dataRef,
       taxaMediaIndicativa: taxaMedia,
       titulos,
-    })
+    });
   } catch (error) {
-    console.error('taxa-ipca-atual:onRequestGet', error)
-    return jsonResponse({ ok: false, error: 'Erro interno.' }, 500)
+    console.error('taxa-ipca-atual:onRequestGet', error);
+    return jsonResponse({ ok: false, error: 'Erro interno.' }, 500);
   }
-}
+};

@@ -1,55 +1,69 @@
 // Endpoint: POST /api/contato
 // Envia formulário de contato via Resend
 
-import { enforceRateLimit, escapeHtml, jsonResponse, requireAllowedOrigin, type D1DatabaseLike } from './_shared/security'
+import {
+  type D1DatabaseLike,
+  enforceRateLimit,
+  escapeHtml,
+  jsonResponse,
+  requireAllowedOrigin,
+} from './_shared/security';
 
 interface Env {
-  RESEND_API_KEY: string
-  BIGDATA_DB: D1DatabaseLike
+  RESEND_API_KEY: string;
+  BIGDATA_DB: D1DatabaseLike;
 }
 
-interface Ctx { env: Env; request: Request }
+interface Ctx {
+  env: Env;
+  request: Request;
+}
 
 export const onRequestPost = async ({ env, request }: Ctx) => {
   try {
-    const originError = requireAllowedOrigin(request)
-    if (originError) return originError
+    const originError = requireAllowedOrigin(request);
+    if (originError) return originError;
 
-    const rateLimitError = await enforceRateLimit(request, env.BIGDATA_DB, 'contato')
-    if (rateLimitError) return rateLimitError
+    const rateLimitError = await enforceRateLimit(request, env.BIGDATA_DB, 'contato');
+    if (rateLimitError) return rateLimitError;
 
-    const envRec = env as unknown as Record<string, unknown>
-    const candidate = env?.RESEND_API_KEY || envRec['RESEND_APP_KEY'] || envRec['RESEND_APPKEY'] || envRec['resend-api-key'] || envRec['resend-appkey']
-    const apiKey = typeof candidate === 'string' && candidate.length > 0 ? candidate : null
-    if (!apiKey) return jsonResponse({ ok: false, error: 'Serviço de e-mail indisponível.' }, 503)
+    const envRec = env as unknown as Record<string, unknown>;
+    const candidate =
+      env?.RESEND_API_KEY ||
+      envRec.RESEND_APP_KEY ||
+      envRec.RESEND_APPKEY ||
+      envRec['resend-api-key'] ||
+      envRec['resend-appkey'];
+    const apiKey = typeof candidate === 'string' && candidate.length > 0 ? candidate : null;
+    if (!apiKey) return jsonResponse({ ok: false, error: 'Serviço de e-mail indisponível.' }, 503);
 
-    let body: { name?: string; phone?: string; email?: string; message?: string }
+    let body: { name?: string; phone?: string; email?: string; message?: string };
     try {
-      body = await request.json() as typeof body
+      body = (await request.json()) as typeof body;
     } catch {
-      return jsonResponse({ ok: false, error: 'Payload JSON inválido.' }, 400)
+      return jsonResponse({ ok: false, error: 'Payload JSON inválido.' }, 400);
     }
-    const name = (body.name ?? '').trim()
-    const phone = (body.phone ?? '').trim()
-    const email = (body.email ?? '').trim()
-    const message = (body.message ?? '').trim()
-    const safeName = escapeHtml(name)
-    const safePhone = escapeHtml(phone)
-    const safeEmail = escapeHtml(email)
-    const safeMessage = escapeHtml(message).replace(/\n/g, '<br>')
+    const name = (body.name ?? '').trim();
+    const phone = (body.phone ?? '').trim();
+    const email = (body.email ?? '').trim();
+    const message = (body.message ?? '').trim();
+    const safeName = escapeHtml(name);
+    const safePhone = escapeHtml(phone);
+    const safeEmail = escapeHtml(email);
+    const safeMessage = escapeHtml(message).replace(/\n/g, '<br>');
 
     if (!name || !email || !message) {
-      return jsonResponse({ ok: false, error: 'Nome, e-mail e mensagem são obrigatórios.' }, 400)
+      return jsonResponse({ ok: false, error: 'Nome, e-mail e mensagem são obrigatórios.' }, 400);
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return jsonResponse({ ok: false, error: 'E-mail inválido.' }, 400)
+      return jsonResponse({ ok: false, error: 'E-mail inválido.' }, 400);
     }
 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         from: 'Oráculo Financeiro <oraculo-financeiro@lcv.app.br>',
@@ -70,15 +84,15 @@ export const onRequestPost = async ({ env, request }: Ctx) => {
           </div>
         `,
       }),
-    })
+    });
 
     if (res.ok) {
-      return jsonResponse({ ok: true, message: 'Mensagem enviada com sucesso!' })
+      return jsonResponse({ ok: true, message: 'Mensagem enviada com sucesso!' });
     }
-    const data = await res.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>
-    return jsonResponse({ ok: false, error: String(data.message ?? 'Falha no envio.') }, 502)
+    const data = (await res.json().catch(() => ({}) as Record<string, unknown>)) as Record<string, unknown>;
+    return jsonResponse({ ok: false, error: String(data.message ?? 'Falha no envio.') }, 502);
   } catch (error) {
-    console.error('contato:onRequestPost', error)
-    return jsonResponse({ ok: false, error: 'Erro interno.' }, 500)
+    console.error('contato:onRequestPost', error);
+    return jsonResponse({ ok: false, error: 'Erro interno.' }, 500);
   }
-}
+};

@@ -2,7 +2,7 @@
  * Copyright (C) 2026 Leonardo Cardozo Vargas
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import React from 'react';
+import type React from 'react';
 
 interface ComplianceBannerProps {
   onViewLicenses: () => void;
@@ -12,7 +12,7 @@ export const ComplianceBanner: React.FC<ComplianceBannerProps> = ({ onViewLicens
   const linkStyle: React.CSSProperties = {
     color: 'var(--color-primary, #1a73e8)',
     textDecoration: 'underline',
-    fontWeight: 700
+    fontWeight: 700,
   };
 
   return (
@@ -30,7 +30,7 @@ export const ComplianceBanner: React.FC<ComplianceBannerProps> = ({ onViewLicens
         marginTop: 'auto',
         background: 'var(--surface, rgba(255,255,255,0.82))',
         backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)'
+        WebkitBackdropFilter: 'blur(10px)',
       }}
       aria-label="Rodapé de conformidade de licenciamento"
     >
@@ -47,7 +47,12 @@ export const ComplianceBanner: React.FC<ComplianceBannerProps> = ({ onViewLicens
         Licenças (GNU AGPLv3 + Apache 2.0)
       </a>
       <span aria-hidden="true">|</span>
-      <a href="https://github.com/lcv-leo/oraculo-financeiro" target="_blank" rel="noopener noreferrer" style={linkStyle}>
+      <a
+        href="https://github.com/lcv-leo/oraculo-financeiro"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={linkStyle}
+      >
         Código Fonte (GitHub)
       </a>
     </footer>

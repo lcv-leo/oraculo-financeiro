@@ -1,9 +1,10 @@
-const SECRET_KEYS = [
-  'GEMINI_API_KEY',
-  'RESEND_API_KEY'
-] as const;
+const SECRET_KEYS = ['GEMINI_API_KEY', 'RESEND_API_KEY'] as const;
 
-export async function onRequest(context: { request: Request; env: Record<string, unknown>; next: () => Promise<Response> }) {
+export async function onRequest(context: {
+  request: Request;
+  env: Record<string, unknown>;
+  next: () => Promise<Response>;
+}) {
   const url = new URL(context.request.url);
 
   // Bloqueio de exposição pública via URL interna .pages.dev
@@ -25,9 +26,9 @@ export async function onRequest(context: { request: Request; env: Record<string,
             (context.env as Record<string, unknown>)[key] = undefined;
           }
         }
-      })
+      }),
     );
   }
 
   return context.next();
-};
+}

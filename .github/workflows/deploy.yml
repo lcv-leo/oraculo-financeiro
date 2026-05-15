@@ -28,6 +28,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run biome
       - run: npm run build
       - name: Inject D1 database_id from secret (root + workers/taxaipca-motor)
         run: |

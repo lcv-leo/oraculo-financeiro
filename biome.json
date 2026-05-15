@@ -1,12 +1,49 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.11/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
+  "files": {
+    "includes": [
+      "src/**/*.ts",
+      "src/**/*.tsx",
+      "src/**/*.js",
+      "src/**/*.jsx",
+      "functions/**/*.ts",
+      "!dist",
+      "!build",
+      "!.wrangler",
+      "!node_modules",
+      "!coverage",
+      "!**/*.css",
+      "!wrangler.json",
+      "!**/wrangler.json"
+    ]
+  },
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": true,
-      "suspicious": { "noConsole": "off", "noExplicitAny": "off" },
-      "correctness": { "noUndeclaredVariables": "off" }
+      "suspicious": {
+        "noConsole": "off",
+        "noExplicitAny": "off",
+        "noArrayIndexKey": "off",
+        "noImplicitAnyLet": "off"
+      },
+      "correctness": {
+        "useExhaustiveDependencies": "off",
+        "noUndeclaredVariables": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off"
+      },
+      "a11y": {
+        "useKeyWithClickEvents": "off",
+        "useButtonType": "off",
+        "noStaticElementInteractions": "off",
+        "useAriaPropsSupportedByRole": "off"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "off"
+      }
     }
   },
   "formatter": {

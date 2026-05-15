@@ -31,10 +31,10 @@
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function aliquotaIrRegressiva(diasCorridos: number, _dataCompraISO?: string): number {
-  if (diasCorridos <= 180) return 22.5
-  if (diasCorridos <= 360) return 20
-  if (diasCorridos <= 720) return 17.5
-  return 15
+  if (diasCorridos <= 180) return 22.5;
+  if (diasCorridos <= 360) return 20;
+  if (diasCorridos <= 720) return 17.5;
+  return 15;
 }
 
 /**
@@ -42,23 +42,21 @@ export function aliquotaIrRegressiva(diasCorridos: number, _dataCompraISO?: stri
  * Índice pelo número de dias completos: IOF[0] = 96%, ..., IOF[29] = 0%.
  */
 const IOF_TABELA = [
-  96, 93, 90, 86, 83, 80, 76, 73, 70, 66,
-  63, 60, 56, 53, 50, 46, 43, 40, 36, 33,
-  30, 26, 23, 20, 16, 13, 10,  6,  3,  0,
-]
+  96, 93, 90, 86, 83, 80, 76, 73, 70, 66, 63, 60, 56, 53, 50, 46, 43, 40, 36, 33, 30, 26, 23, 20, 16, 13, 10, 6, 3, 0,
+];
 
 export function aliquotaIof(diasCorridos: number): number {
-  if (diasCorridos >= 30) return 0
-  return IOF_TABELA[Math.max(0, diasCorridos - 1)] ?? 0
+  if (diasCorridos >= 30) return 0;
+  return IOF_TABELA[Math.max(0, diasCorridos - 1)] ?? 0;
 }
 
 // ─── TEMPO ───────────────────────────────────────────────────────────────────
 
 /** Dias corridos entre a data ISO de compra e hoje. */
 export function diasDecorridos(dataCompraISO: string): number {
-  const compra = new Date(dataCompraISO)
-  const hoje = new Date()
-  return Math.max(0, Math.floor((hoje.getTime() - compra.getTime()) / 86_400_000))
+  const compra = new Date(dataCompraISO);
+  const hoje = new Date();
+  return Math.max(0, Math.floor((hoje.getTime() - compra.getTime()) / 86_400_000));
 }
 
 /**
@@ -66,7 +64,7 @@ export function diasDecorridos(dataCompraISO: string): number {
  * Base: 252 dias úteis / 365 dias corridos (padrão ANBIMA).
  */
 export function diasUteisAproximados(diasCorridos: number): number {
-  return Math.round(diasCorridos * (252 / 365))
+  return Math.round(diasCorridos * (252 / 365));
 }
 
 /**
@@ -74,7 +72,7 @@ export function diasUteisAproximados(diasCorridos: number): number {
  * Fonte: tabela regressiva Lei 11.033/2004.
  */
 export function diasParaMenorIr(dataCompraISO: string): number {
-  return Math.max(0, 720 - diasDecorridos(dataCompraISO))
+  return Math.max(0, 720 - diasDecorridos(dataCompraISO));
 }
 
 // ─── LCI / LCA / CDB ─────────────────────────────────────────────────────────
@@ -91,9 +89,9 @@ export function diasParaMenorIr(dataCompraISO: string): number {
  * @param aliquotaIr     - Alíquota de IR do CDB para o prazo (ex: 15)
  */
 export function cdbEquivalenteALciLca(taxaLciPctCdi: number, aliquotaIr: number): number {
-  const fatorLiquido = 1 - aliquotaIr / 100
-  if (fatorLiquido <= 0) return 0
-  return taxaLciPctCdi / fatorLiquido
+  const fatorLiquido = 1 - aliquotaIr / 100;
+  if (fatorLiquido <= 0) return 0;
+  return taxaLciPctCdi / fatorLiquido;
 }
 
 /**
@@ -112,10 +110,10 @@ export function rendimentoBrutoPeriodo(
   percentualCdi: number,
   diasCorridos: number,
 ): number {
-  const du = diasUteisAproximados(diasCorridos)
-  const taxaEfetivaAnual = (cdiAnualPct / 100) * (percentualCdi / 100)
-  const fatorPeriodo = (1 + taxaEfetivaAnual) ** (du / 252) - 1
-  return capital * fatorPeriodo
+  const du = diasUteisAproximados(diasCorridos);
+  const taxaEfetivaAnual = (cdiAnualPct / 100) * (percentualCdi / 100);
+  const fatorPeriodo = (1 + taxaEfetivaAnual) ** (du / 252) - 1;
+  return capital * fatorPeriodo;
 }
 
 /**
@@ -128,7 +126,7 @@ export function rendimentoLiquidoLciLca(
   percentualCdi: number,
   diasCorridos: number,
 ): number {
-  return rendimentoBrutoPeriodo(capital, cdiAnualPct, percentualCdi, diasCorridos)
+  return rendimentoBrutoPeriodo(capital, cdiAnualPct, percentualCdi, diasCorridos);
 }
 
 /**
@@ -140,11 +138,11 @@ export function rendimentoLiquidoCdb(
   percentualCdi: number,
   diasCorridos: number,
 ): number {
-  const bruto = rendimentoBrutoPeriodo(capital, cdiAnualPct, percentualCdi, diasCorridos)
-  const iof = aliquotaIof(diasCorridos)
-  const ir = aliquotaIrRegressiva(diasCorridos)
-  const aposIof = bruto * (1 - iof / 100)
-  return aposIof * (1 - ir / 100)
+  const bruto = rendimentoBrutoPeriodo(capital, cdiAnualPct, percentualCdi, diasCorridos);
+  const iof = aliquotaIof(diasCorridos);
+  const ir = aliquotaIrRegressiva(diasCorridos);
+  const aposIof = bruto * (1 - iof / 100);
+  return aposIof * (1 - ir / 100);
 }
 
 /**
@@ -156,57 +154,57 @@ export function rendimentoLiquidoCdb(
  * @param ipcaAnualPct    - Inflação projetada anual em %
  */
 export function ganhoRealAnualizado(nominalAnualPct: number, ipcaAnualPct: number): number {
-  const nominal = 1 + nominalAnualPct / 100
-  const inflacao = 1 + ipcaAnualPct / 100
-  return (nominal / inflacao - 1) * 100
+  const nominal = 1 + nominalAnualPct / 100;
+  const inflacao = 1 + ipcaAnualPct / 100;
+  return (nominal / inflacao - 1) * 100;
 }
 
 /**
  * Converte rendimento do período para taxa efetiva anual equivalente (base 252 d.u.).
  */
 export function taxaEfetivaAnualDoPeriodo(rendimentoPeriodoPct: number, diasCorridos: number): number {
-  const du = diasUteisAproximados(diasCorridos)
-  if (du <= 0) return 0
-  return ((1 + rendimentoPeriodoPct / 100) ** (252 / du) - 1) * 100
+  const du = diasUteisAproximados(diasCorridos);
+  if (du <= 0) return 0;
+  return ((1 + rendimentoPeriodoPct / 100) ** (252 / du) - 1) * 100;
 }
 
-export type ClassificacaoLci = 'excelente' | 'muito-bom' | 'regular' | 'abaixo'
+export type ClassificacaoLci = 'excelente' | 'muito-bom' | 'regular' | 'abaixo';
 
 /**
  * Benchmark da LCI/LCA em relação ao CDI bruto.
  * Referências de mercado (2024-2025): grandes bancos oferecem ~85-90%; médios, ~92-100%.
  */
 export function classificarLciLca(percentualCdi: number): {
-  classe: ClassificacaoLci
-  label: string
-  descricao: string
+  classe: ClassificacaoLci;
+  label: string;
+  descricao: string;
 } {
   if (percentualCdi >= 96) {
     return {
       classe: 'excelente',
       label: 'Excelente',
       descricao: 'Acima de 96% CDI — raramente disponível; típico de bancos médios ou CRIs/CRAs.',
-    }
+    };
   }
   if (percentualCdi >= 91) {
     return {
       classe: 'muito-bom',
       label: 'Muito bom',
       descricao: 'Entre 91-96% CDI — acima da média; vale confirmar solidez do emissor.',
-    }
+    };
   }
   if (percentualCdi >= 86) {
     return {
       classe: 'regular',
       label: 'Regular',
       descricao: 'Entre 86-91% CDI — faixa típica dos grandes bancos para LCI/LCA.',
-    }
+    };
   }
   return {
     classe: 'abaixo',
     label: 'Abaixo da média',
     descricao: 'Abaixo de 86% CDI — questione a proposta; Tesouro Selic ou CDB podem ser superiores.',
-  }
+  };
 }
 
 // ─── TESOURO DIRETO IPCA+ ────────────────────────────────────────────────────
@@ -222,12 +220,8 @@ export function classificarLciLca(percentualCdi: number): {
  *
  * Fonte: Fabozzi (2006), cap. 4
  */
-export function durationModificada(
-  macaulayDurationAnos: number,
-  yieldAnualPct: number,
-  mFrequencia = 2,
-): number {
-  return macaulayDurationAnos / (1 + yieldAnualPct / 100 / mFrequencia)
+export function durationModificada(macaulayDurationAnos: number, yieldAnualPct: number, mFrequencia = 2): number {
+  return macaulayDurationAnos / (1 + yieldAnualPct / 100 / mFrequencia);
 }
 
 /**
@@ -239,8 +233,8 @@ export function durationModificada(
  * Fonte: Fabozzi (2006), cap. 5; Hull (2018), cap. 9
  */
 export function convexidade(macaulayDurationAnos: number, yieldAnualPct: number): number {
-  const y = yieldAnualPct / 100
-  return (macaulayDurationAnos * (macaulayDurationAnos + 1)) / (1 + y) ** 2
+  const y = yieldAnualPct / 100;
+  return (macaulayDurationAnos * (macaulayDurationAnos + 1)) / (1 + y) ** 2;
 }
 
 /**
@@ -258,25 +252,25 @@ export function convexidade(macaulayDurationAnos: number, yieldAnualPct: number)
  * @param deltaYield - Variação do yield em decimal (taxaAtual − taxaContratada)/100
  */
 export function variacaoPrecoPorDuration(md: number, conv: number, deltaYield: number): number {
-  return -md * deltaYield + 0.5 * conv * deltaYield * deltaYield
+  return -md * deltaYield + 0.5 * conv * deltaYield * deltaYield;
 }
 
 // ─── ANÁLISE DE LOTE TESOURO IPCA+ ───────────────────────────────────────────
 
 export type AnaliseTesouroLote = {
-  diasDecorridos: number
-  aliquotaIrAtual: number
-  diasParaMenorIr: number
-  md: number
-  conv: number
-  deltaYield: number           // taxaAtual − taxaContratada (em decimal)
-  mtmPct: number               // variação % no preço do título
-  mtmR$: number                // ganho/perda absoluto em R$
-  ganhoLiquidoHoje: number     // R$ líquido de IR se vender agora
-  ganhoLiquidoIrMin: number    // R$ líquido se esperar IR 15%
-  economiaIrAguardando: number // diferença entre os dois (R$)
-  taxaEfetivaAbsolutos: number // rendimento total líquido estimado (bruto IPCA+ + MTM)
-}
+  diasDecorridos: number;
+  aliquotaIrAtual: number;
+  diasParaMenorIr: number;
+  md: number;
+  conv: number;
+  deltaYield: number; // taxaAtual − taxaContratada (em decimal)
+  mtmPct: number; // variação % no preço do título
+  mtmR$: number; // ganho/perda absoluto em R$
+  ganhoLiquidoHoje: number; // R$ líquido de IR se vender agora
+  ganhoLiquidoIrMin: number; // R$ líquido se esperar IR 15%
+  economiaIrAguardando: number; // diferença entre os dois (R$)
+  taxaEfetivaAbsolutos: number; // rendimento total líquido estimado (bruto IPCA+ + MTM)
+};
 
 /**
  * Análise completa de um único lote de Tesouro IPCA+.
@@ -294,21 +288,21 @@ export function analisarLote(
   taxaAtual: number,
   durationAnos: number,
 ): AnaliseTesouroLote {
-  const dias = diasDecorridos(dataCompra)
-  const irAtual = aliquotaIrRegressiva(dias, dataCompra)
-  const diasIrMin = diasParaMenorIr(dataCompra)
+  const dias = diasDecorridos(dataCompra);
+  const irAtual = aliquotaIrRegressiva(dias, dataCompra);
+  const diasIrMin = diasParaMenorIr(dataCompra);
 
-  const md = durationModificada(durationAnos, taxaContratada)
-  const conv = convexidade(durationAnos, taxaContratada)
-  const deltaYield = (taxaAtual - taxaContratada) / 100 // positivo = taxa subiu = preço caiu
+  const md = durationModificada(durationAnos, taxaContratada);
+  const conv = convexidade(durationAnos, taxaContratada);
+  const deltaYield = (taxaAtual - taxaContratada) / 100; // positivo = taxa subiu = preço caiu
 
-  const varPct = variacaoPrecoPorDuration(md, conv, deltaYield)
-  const mtm = valorInvestido * varPct
+  const varPct = variacaoPrecoPorDuration(md, conv, deltaYield);
+  const mtm = valorInvestido * varPct;
 
   // IR incide apenas sobre o ganho real; prejuízo de MTM não gera crédito fiscal no TD
-  const ganhoHoje = mtm > 0 ? mtm * (1 - irAtual / 100) : mtm
-  const ganhoIrMin = mtm > 0 ? mtm * (1 - 0.15) : mtm
-  const economia = ganhoHoje < ganhoIrMin ? ganhoIrMin - ganhoHoje : 0
+  const ganhoHoje = mtm > 0 ? mtm * (1 - irAtual / 100) : mtm;
+  const ganhoIrMin = mtm > 0 ? mtm * (1 - 0.15) : mtm;
+  const economia = ganhoHoje < ganhoIrMin ? ganhoIrMin - ganhoHoje : 0;
 
   return {
     diasDecorridos: dias,
@@ -323,19 +317,19 @@ export function analisarLote(
     ganhoLiquidoIrMin: ganhoIrMin,
     economiaIrAguardando: economia,
     taxaEfetivaAbsolutos: valorInvestido + ganhoHoje, // valor líquido estimado hoje
-  }
+  };
 }
 
 // ─── SINAL DE DECISÃO — CARTEIRA TESOURO IPCA+ ───────────────────────────────
 
-export type ForcaSinal = 'forte' | 'moderado' | 'fraco'
+export type ForcaSinal = 'forte' | 'moderado' | 'fraco';
 
 export type SinalTesouro = {
-  sinal: 'VENDER' | 'AVALIAR' | 'MANTER' | 'AGUARDAR IR'
-  forca: ForcaSinal
-  texto: string
-  subTexto: string
-}
+  sinal: 'VENDER' | 'AVALIAR' | 'MANTER' | 'AGUARDAR IR';
+  forca: ForcaSinal;
+  texto: string;
+  subTexto: string;
+};
 
 /**
  * Gerador de sinal de compra/venda para carteira de Tesouro IPCA+.
@@ -361,7 +355,7 @@ export function gerarSinalTesouro(
   mtmTotal: number,
   economiaIrTotal: number,
 ): SinalTesouro {
-  const deltaYield = taxaAtual - taxaMediaContratada // positivo = taxa subiu = perda
+  const deltaYield = taxaAtual - taxaMediaContratada; // positivo = taxa subiu = perda
 
   // ── Taxa subiu → detentor sofre depreciação → manter até vencimento ──────
   if (deltaYield > 0.5) {
@@ -369,9 +363,10 @@ export function gerarSinalTesouro(
       sinal: 'MANTER',
       forca: 'forte',
       texto: 'Taxa de mercado subiu: carteira sofreu depreciação de MTM.',
-      subTexto: `Venda antecipada realizaria prejuízo estimado de R$ ${Math.abs(mtmTotal).toFixed(2)}. ` +
+      subTexto:
+        `Venda antecipada realizaria prejuízo estimado de R$ ${Math.abs(mtmTotal).toFixed(2)}. ` +
         'Manter até o vencimento garante o retorno contratado (IPCA + spread).',
-    }
+    };
   }
 
   if (deltaYield > 0.05) {
@@ -380,7 +375,7 @@ export function gerarSinalTesouro(
       forca: 'moderado',
       texto: 'Taxa de mercado levemente acima da contratada.',
       subTexto: 'Variação pequena — aguardar reversão antes de agir.',
-    }
+    };
   }
 
   if (deltaYield > -0.1) {
@@ -389,11 +384,11 @@ export function gerarSinalTesouro(
       forca: 'fraco',
       texto: 'Taxa praticamente estável. Ganho de MTM irrelevante.',
       subTexto: `Diferencial atual: ${deltaYield.toFixed(2)} p.p. Sem catalisador para venda.`,
-    }
+    };
   }
 
   // ── Taxa caiu → papel valorizou → avaliar venda ──────────────────────────
-  const quedaTaxa = -deltaYield // valor positivo
+  const quedaTaxa = -deltaYield; // valor positivo
 
   if (quedaTaxa < 0.2) {
     return {
@@ -401,20 +396,21 @@ export function gerarSinalTesouro(
       forca: 'fraco',
       texto: 'Taxa caiu levemente. Ganho de MTM ainda é marginal.',
       subTexto: `Ganho de mercado: R$ ${mtmTotal.toFixed(2)}. Monitorar evolução.`,
-    }
+    };
   }
 
   // Há ganho relevante; verificar eficiência fiscal
-  const irMinimo = aliquotaIrMedia <= 15 || diasMediosParaMenorIr === 0
+  const irMinimo = aliquotaIrMedia <= 15 || diasMediosParaMenorIr === 0;
 
   if (!irMinimo && diasMediosParaMenorIr > 90) {
     return {
       sinal: 'AGUARDAR IR',
       forca: quedaTaxa > 0.5 ? 'forte' : 'moderado',
       texto: `Aguardar ${diasMediosParaMenorIr} dias para atingir IR mínimo.`,
-      subTexto: `Economia fiscal esperada: R$ ${economiaIrTotal.toFixed(2)}. ` +
+      subTexto:
+        `Economia fiscal esperada: R$ ${economiaIrTotal.toFixed(2)}. ` +
         'Vender agora tem custo tributário alto — a não ser que haja necessidade de liquidez.',
-    }
+    };
   }
 
   if (!irMinimo && diasMediosParaMenorIr <= 90) {
@@ -422,21 +418,23 @@ export function gerarSinalTesouro(
       sinal: 'AVALIAR',
       forca: 'moderado',
       texto: `Janela de decisão: faltam apenas ${diasMediosParaMenorIr} dias para IR mínimo.`,
-      subTexto: `Economia fiscal esperando: R$ ${economiaIrTotal.toFixed(2)}. ` +
+      subTexto:
+        `Economia fiscal esperando: R$ ${economiaIrTotal.toFixed(2)}. ` +
         'Compare com seu custo de oportunidade no período.',
-    }
+    };
   }
 
   // IR já no mínimo (15%) — avaliar magnitude
-  const irLabel = '15%'
-  const fatorLiquido = 1 - aliquotaIrMedia / 100
+  const irLabel = '15%';
+  const fatorLiquido = 1 - aliquotaIrMedia / 100;
   return {
     sinal: 'VENDER',
     forca: quedaTaxa > 0.5 ? 'forte' : 'moderado',
     texto: `Condições favoráveis: taxa caiu e IR já está no mínimo (${irLabel}).`,
-    subTexto: `Ganho líquido estimado: R$ ${mtmTotal > 0 ? (mtmTotal * fatorLiquido).toFixed(2) : '0,00'}. ` +
+    subTexto:
+      `Ganho líquido estimado: R$ ${mtmTotal > 0 ? (mtmTotal * fatorLiquido).toFixed(2) : '0,00'}. ` +
       'Janela de venda ativa — realize o lucro ou reaplique em taxa mais alta.',
-  }
+  };
 }
 
 // ─── HELPERS DE CARTEIRA ─────────────────────────────────────────────────────
@@ -448,20 +446,17 @@ export function mediasPonderadasPorCapital<T extends { valorInvestido: number }>
   lotes: T[],
   campo: (l: T) => number,
 ): number {
-  const totalCapital = lotes.reduce((s, l) => s + l.valorInvestido, 0)
-  if (totalCapital <= 0) return 0
-  return lotes.reduce((s, l) => s + campo(l) * l.valorInvestido, 0) / totalCapital
+  const totalCapital = lotes.reduce((s, l) => s + l.valorInvestido, 0);
+  if (totalCapital <= 0) return 0;
+  return lotes.reduce((s, l) => s + campo(l) * l.valorInvestido, 0) / totalCapital;
 }
 
 /**
  * Data média ponderada pelo capital (representação ISO YYYY-MM-DD).
  */
-export function dataMediaPonderada<T extends { valorInvestido: number; dataCompra: string }>(
-  lotes: T[],
-): string {
-  const total = lotes.reduce((s, l) => s + l.valorInvestido, 0)
-  if (total <= 0) return ''
-  const epochMedio =
-    lotes.reduce((s, l) => s + new Date(l.dataCompra).getTime() * l.valorInvestido, 0) / total
-  return new Date(epochMedio).toISOString().slice(0, 10)
+export function dataMediaPonderada<T extends { valorInvestido: number; dataCompra: string }>(lotes: T[]): string {
+  const total = lotes.reduce((s, l) => s + l.valorInvestido, 0);
+  if (total <= 0) return '';
+  const epochMedio = lotes.reduce((s, l) => s + new Date(l.dataCompra).getTime() * l.valorInvestido, 0) / total;
+  return new Date(epochMedio).toISOString().slice(0, 10);
 }

@@ -3,90 +3,90 @@
 // Descrição: Upgrade Gemini API — modelo gemini-3.1-pro-preview (auto-atualiza), v1beta, thinkingLevel HIGH, safetySettings (BLOCK_NONE para conteúdo financeiro), retry com 1 tentativa extra. Prompt fiduciário preservado.
 
 import { GoogleGenAI } from '@google/genai';
-import { enforceRateLimit, jsonResponse, requireAllowedOrigin } from './_shared/security'
+import { enforceRateLimit, jsonResponse, requireAllowedOrigin } from './_shared/security';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
-type D1Result<T = unknown> = { results?: T[] }
+type D1Result<T = unknown> = { results?: T[] };
 
 interface D1Prepared {
-  bind: (...args: unknown[]) => { run: () => Promise<unknown> }
-  all: () => Promise<D1Result>
+  bind: (...args: unknown[]) => { run: () => Promise<unknown> };
+  all: () => Promise<D1Result>;
 }
 
 interface D1DatabaseLike {
-  prepare: (query: string) => D1Prepared
+  prepare: (query: string) => D1Prepared;
 }
 
 interface Env {
-  BIGDATA_DB: D1DatabaseLike
-  GEMINI_API_KEY: string
+  BIGDATA_DB: D1DatabaseLike;
+  GEMINI_API_KEY: string;
 }
 
 interface Context {
-  env: Env
-  request: Request
+  env: Env;
+  request: Request;
 }
 
 // Payload que vem do front-end
 type PayloadLciLca = {
-  tipo: 'lci-lca'
-  prazoDias: number
-  taxaLciLca: number
-  aporte: number
-  cdiAtual: number
-  ipcaProjetado: number
-  aliquotaIr: number
-  cdbEquivalente: number
-  rendLciLiquido: number
-  rendCdbLiquido: number
-  rendLciPctAa: number
-  ganhoRealLci: number
-  benchmarkLabel: string
-  benchmarkDescricao: string
-}
+  tipo: 'lci-lca';
+  prazoDias: number;
+  taxaLciLca: number;
+  aporte: number;
+  cdiAtual: number;
+  ipcaProjetado: number;
+  aliquotaIr: number;
+  cdbEquivalente: number;
+  rendLciLiquido: number;
+  rendCdbLiquido: number;
+  rendLciPctAa: number;
+  ganhoRealLci: number;
+  benchmarkLabel: string;
+  benchmarkDescricao: string;
+};
 
 type LotePayload = {
-  dataCompra: string
-  valorInvestido: number
-  taxaContratada: number
-}
+  dataCompra: string;
+  valorInvestido: number;
+  taxaContratada: number;
+};
 
 type PayloadTesouro = {
-  tipo: 'tesouro-ipca'
-  lotes: LotePayload[]
-  taxaAtual: number
-  durationAnos: number
-  totalInvestido: number
-  taxaMediaContratada: number
-  durationModMedia: number
-  mtmTotal: number
-  aliquotaIrMedia: number
-  diasParaMenorIr: number
-  ganhoLiquidoHoje: number
-  ganhoLiquidoIrMin: number
-  economiaIr: number
-  sinal: string
-  forcaSinal: string
-}
+  tipo: 'tesouro-ipca';
+  lotes: LotePayload[];
+  taxaAtual: number;
+  durationAnos: number;
+  totalInvestido: number;
+  taxaMediaContratada: number;
+  durationModMedia: number;
+  mtmTotal: number;
+  aliquotaIrMedia: number;
+  diasParaMenorIr: number;
+  ganhoLiquidoHoje: number;
+  ganhoLiquidoIrMin: number;
+  economiaIr: number;
+  sinal: string;
+  forcaSinal: string;
+};
 
-type Payload = PayloadLciLca | PayloadTesouro
+type Payload = PayloadLciLca | PayloadTesouro;
 
 // Resposta estruturada do Gemini
 type AnaliseIA = {
-  avaliacao: 'bom' | 'regular' | 'ruim'
-  titulo: string
-  analise: string
+  avaliacao: 'bom' | 'regular' | 'ruim';
+  titulo: string;
+  analise: string;
   numerosChave: {
-    retornoLiquidoEstimado: string
-    ganhoRealAcimaIpca: string
-    comparacaoTesouroSelic: string
-  }
-  recomendacao: 'MANTER' | 'VENDER' | 'AGUARDAR' | 'EVITAR'
-  timing: string
-  ciladas: string[]
-  resumo: string
-}
+    retornoLiquidoEstimado: string;
+    ganhoRealAcimaIpca: string;
+    comparacaoTesouroSelic: string;
+  };
+  recomendacao: 'MANTER' | 'VENDER' | 'AGUARDAR' | 'EVITAR';
+  timing: string;
+  ciladas: string[];
+  resumo: string;
+};
 
 // ─── PROMPT PRINCIPAL DO GEMINI ──────────────────────────────────────────────
 //
@@ -165,14 +165,14 @@ Responda EXCLUSIVAMENTE com o JSON abaixo — sem texto antes, sem texto depois,
   "timing": "string — ex: 'imediato', 'aguardar 43 dias para IR mínimo de 15%', 'manter até vencimento'",
   "ciladas": ["lista de alertas específicos ao caso — pode ser vazia []"],
   "resumo": "string — 1 frase conclusiva que qualquer pessoa sem conhecimento financeiro entende"
-}`
+}`;
 
 // ─── BUILDERS DE PROMPT POR TIPO ─────────────────────────────────────────────
 
 function buildPromptLciLca(p: PayloadLciLca): string {
-  const fmtR = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  const fmtPct = (v: number) => v.toFixed(2)
-  const diffCdb = p.taxaLciLca - p.cdbEquivalente
+  const fmtR = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtPct = (v: number) => v.toFixed(2);
+  const diffCdb = p.taxaLciLca - p.cdbEquivalente;
 
   return `INVESTIMENTO EM ANÁLISE: LCI/LCA (isenta de IR e IOF)
 
@@ -195,20 +195,24 @@ Métricas calculadas (use-as diretamente na análise):
 • Avaliação de mercado da taxa: ${p.benchmarkLabel} — "${p.benchmarkDescricao}"
 
 Por favor, analise este investimento para um investidor brasileiro de pessoa física.
-Concentre-se em responder: a isenção de IR foi capturada pelo emissor (taxa baixa) ou repassada ao investidor?`
+Concentre-se em responder: a isenção de IR foi capturada pelo emissor (taxa baixa) ou repassada ao investidor?`;
 }
 
 function buildPromptTesouro(p: PayloadTesouro): string {
-  const fmtR = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  const fmtPct = (v: number) => v.toFixed(2)
-  const delta = p.taxaAtual - p.taxaMediaContratada
-  const direcaoTaxa = delta > 0
-    ? `SUBIU ${fmtPct(delta)} p.p. → papel DESVALORIZOU (perda de MTM)`
-    : `CAIU ${fmtPct(Math.abs(delta))} p.p. → papel VALORIZOU (ganho de MTM)`
+  const fmtR = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtPct = (v: number) => v.toFixed(2);
+  const delta = p.taxaAtual - p.taxaMediaContratada;
+  const direcaoTaxa =
+    delta > 0
+      ? `SUBIU ${fmtPct(delta)} p.p. → papel DESVALORIZOU (perda de MTM)`
+      : `CAIU ${fmtPct(Math.abs(delta))} p.p. → papel VALORIZOU (ganho de MTM)`;
 
-  const loteLines = p.lotes.map((l, i) =>
-    `  Lote ${i + 1}: compra ${l.dataCompra} | R$ ${fmtR(l.valorInvestido)} | ${fmtPct(l.taxaContratada)}% a.a.`,
-  ).join('\n')
+  const loteLines = p.lotes
+    .map(
+      (l, i) =>
+        `  Lote ${i + 1}: compra ${l.dataCompra} | R$ ${fmtR(l.valorInvestido)} | ${fmtPct(l.taxaContratada)}% a.a.`,
+    )
+    .join('\n');
 
   return `INVESTIMENTO EM ANÁLISE: CARTEIRA TESOURO DIRETO IPCA+
 
@@ -228,15 +232,15 @@ Análise de Marcação a Mercado (método Duration Modificada + Convexidade — 
 
 Análise fiscal:
 • Alíquota IR média atual (ponderada): ${p.aliquotaIrMedia.toFixed(1)}%
-• Dias médios para atingir IR mínimo (15%): ${p.diasParaMenorIr === 0 ? 'já atingido em todos os lotes' : p.diasParaMenorIr + ' dias'}
+• Dias médios para atingir IR mínimo (15%): ${p.diasParaMenorIr === 0 ? 'já atingido em todos os lotes' : `${p.diasParaMenorIr} dias`}
 • Ganho líquido se vender HOJE (IR atual): ${p.ganhoLiquidoHoje >= 0 ? '+' : ''}R$ ${fmtR(p.ganhoLiquidoHoje)}
 • Ganho líquido aguardando IR 15%: ${p.ganhoLiquidoIrMin >= 0 ? '+' : ''}R$ ${fmtR(p.ganhoLiquidoIrMin)}
-• Economia fiscal esperando: ${p.economiaIr > 0 ? '+R$ ' + fmtR(p.economiaIr) : 'nenhuma (IR já no mínimo)'}
+• Economia fiscal esperando: ${p.economiaIr > 0 ? `+R$ ${fmtR(p.economiaIr)}` : 'nenhuma (IR já no mínimo)'}
 • Sinal quantitativo calculado: ${p.sinal} (força: ${p.forcaSinal})
 
 Por favor, analise esta carteira para um investidor brasileiro de pessoa física.
 Foque especialmente na decisão de VENDER AGORA vs AGUARDAR, justificando com os números acima.
-Se há lotes com perfis muito diferentes, destaque o mais relevante.`
+Se há lotes com perfis muito diferentes, destaque o mais relevante.`;
 }
 
 // ─── UTILIDADES ───────────────────────────────────────────────────────────────
@@ -245,7 +249,7 @@ const GEMINI_CONFIG = {
   model: 'gemini-3.1-pro-preview',
   maxTokensInput: 120000,
   maxOutputTokens: 8192,
-  temperature: 0.3
+  temperature: 0.3,
 };
 
 function structuredLog(level: string, message: string, context = {}) {
@@ -253,7 +257,7 @@ function structuredLog(level: string, message: string, context = {}) {
     timestamp: new Date().toISOString(),
     level: level.toUpperCase(),
     message,
-    ...context
+    ...context,
   };
   console.log(JSON.stringify(logEntry));
 }
@@ -261,28 +265,44 @@ function structuredLog(level: string, message: string, context = {}) {
 // ── Telemetria: registra uso de AI no BIGDATA_DB ──
 function logAiUsage(
   db: D1DatabaseLike | undefined,
-  entry: { module: string; model: string; input_tokens: number; output_tokens: number; latency_ms: number; status: string; error_detail?: string },
+  entry: {
+    module: string;
+    model: string;
+    input_tokens: number;
+    output_tokens: number;
+    latency_ms: number;
+    status: string;
+    error_detail?: string;
+  },
 ) {
   if (!db || typeof db.prepare !== 'function') return;
   (async () => {
     try {
-      await db.prepare(`
+      await db
+        .prepare(`
         CREATE TABLE IF NOT EXISTS ai_usage_logs (
           id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT NOT NULL DEFAULT (datetime('now')),
           module TEXT NOT NULL, model TEXT NOT NULL, input_tokens INTEGER DEFAULT 0,
           output_tokens INTEGER DEFAULT 0, latency_ms INTEGER DEFAULT 0,
           status TEXT DEFAULT 'ok', error_detail TEXT
         )
-      `).all();
-      await db.prepare(`
+      `)
+        .all();
+      await db
+        .prepare(`
         INSERT INTO ai_usage_logs (module, model, input_tokens, output_tokens, latency_ms, status, error_detail)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).bind(
-        entry.module, entry.model,
-        entry.input_tokens, entry.output_tokens,
-        entry.latency_ms, entry.status,
-        entry.error_detail || null,
-      ).run();
+      `)
+        .bind(
+          entry.module,
+          entry.model,
+          entry.input_tokens,
+          entry.output_tokens,
+          entry.latency_ms,
+          entry.status,
+          entry.error_detail || null,
+        )
+        .run();
     } catch (err) {
       console.warn('[telemetry] ai_usage_logs INSERT failed:', err instanceof Error ? err.message : err);
     }
@@ -293,151 +313,180 @@ function logAiUsage(
 
 export const onRequestPost = async ({ env, request }: Context) => {
   try {
-    const originError = requireAllowedOrigin(request)
-    if (originError) return originError
+    const originError = requireAllowedOrigin(request);
+    if (originError) return originError;
 
-    const rateLimitError = await enforceRateLimit(request, env.BIGDATA_DB, 'analisar_ia')
-    if (rateLimitError) return rateLimitError
+    const rateLimitError = await enforceRateLimit(request, env.BIGDATA_DB, 'analisar_ia');
+    if (rateLimitError) return rateLimitError;
 
-    const envRec = env as unknown as Record<string, unknown>
-    const candidate = env?.GEMINI_API_KEY || envRec['GEMINI_APP_KEY'] || envRec['gemini-api-key'] || envRec['gemini-app-key']
-    const apiKey = typeof candidate === 'string' && candidate.length > 0 ? candidate : null
+    const envRec = env as unknown as Record<string, unknown>;
+    const candidate =
+      env?.GEMINI_API_KEY || envRec.GEMINI_APP_KEY || envRec['gemini-api-key'] || envRec['gemini-app-key'];
+    const apiKey = typeof candidate === 'string' && candidate.length > 0 ? candidate : null;
     if (!apiKey) {
-      return jsonResponse({ ok: false, error: 'Serviço de IA indisponível.' }, 503)
+      return jsonResponse({ ok: false, error: 'Serviço de IA indisponível.' }, 503);
     }
 
-    let payload: Payload
+    let payload: Payload;
     try {
-      payload = (await request.json()) as Payload
+      payload = (await request.json()) as Payload;
     } catch {
-      return jsonResponse({ ok: false, error: 'Payload JSON inválido.' }, 400)
+      return jsonResponse({ ok: false, error: 'Payload JSON inválido.' }, 400);
     }
 
     if (!payload?.tipo || !['lci-lca', 'tesouro-ipca'].includes(payload.tipo)) {
-      return jsonResponse({ ok: false, error: 'Campo "tipo" inválido.' }, 400)
+      return jsonResponse({ ok: false, error: 'Campo "tipo" inválido.' }, 400);
     }
 
-  // Monta o prompt de usuário de acordo com o tipo
-  const userPrompt = payload.tipo === 'lci-lca'
-    ? buildPromptLciLca(payload as PayloadLciLca)
-    : buildPromptTesouro(payload as PayloadTesouro)
+    // Monta o prompt de usuário de acordo com o tipo
+    const userPrompt =
+      payload.tipo === 'lci-lca'
+        ? buildPromptLciLca(payload as PayloadLciLca)
+        : buildPromptTesouro(payload as PayloadTesouro);
 
-  const ai = new GoogleGenAI({ apiKey });
-  const modelName = GEMINI_CONFIG.model;
+    const ai = new GoogleGenAI({ apiKey });
+    const modelName = GEMINI_CONFIG.model;
 
-  const safetySettings = [
-    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
-    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
-    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
-    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
-    { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_ONLY_HIGH' }
-  ];
+    const safetySettings = [
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_ONLY_HIGH' },
+    ];
 
-  const _telStart = Date.now();
-  try {
-    const countRes = await ai.models.countTokens({ model: modelName, contents: userPrompt });
-    const inputTokens = countRes.totalTokens || 0;
-    if (inputTokens > GEMINI_CONFIG.maxTokensInput) {
-      structuredLog('error', 'Token limit exceeded', { endpoint: 'analisar-ia', tokens: inputTokens });
-      return jsonResponse({ ok: false, error: `Contexto muito longo: ${inputTokens} tokens.` }, 413);
-    }
-  } catch (countError) {
-    structuredLog('warn', 'Token count failed', { endpoint: 'analisar-ia', error: String(countError) });
-  }
-
-  let rawText = '';
-  let usageDetails = {};
-  for (let tentativa = 0; tentativa < 2; tentativa++) {
+    const _telStart = Date.now();
     try {
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: userPrompt,
-        config: {
-          systemInstruction: SYSTEM_PROMPT,
-          responseMimeType: 'application/json',
-          temperature: GEMINI_CONFIG.temperature,
-          maxOutputTokens: GEMINI_CONFIG.maxOutputTokens,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          thinkingConfig: { thinkingBudgetTokens: 1024 } as any,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          safetySettings: safetySettings as any,
+      const countRes = await ai.models.countTokens({ model: modelName, contents: userPrompt });
+      const inputTokens = countRes.totalTokens || 0;
+      if (inputTokens > GEMINI_CONFIG.maxTokensInput) {
+        structuredLog('error', 'Token limit exceeded', { endpoint: 'analisar-ia', tokens: inputTokens });
+        return jsonResponse({ ok: false, error: `Contexto muito longo: ${inputTokens} tokens.` }, 413);
+      }
+    } catch (countError) {
+      structuredLog('warn', 'Token count failed', { endpoint: 'analisar-ia', error: String(countError) });
+    }
+
+    let rawText = '';
+    let usageDetails = {};
+    for (let tentativa = 0; tentativa < 2; tentativa++) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: userPrompt,
+          config: {
+            systemInstruction: SYSTEM_PROMPT,
+            responseMimeType: 'application/json',
+            temperature: GEMINI_CONFIG.temperature,
+            maxOutputTokens: GEMINI_CONFIG.maxOutputTokens,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            thinkingConfig: { thinkingBudgetTokens: 1024 } as any,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            safetySettings: safetySettings as any,
+          },
+        });
+
+        if (response.text) {
+          rawText = response.text;
+          const metadata = response.usageMetadata || {};
+          usageDetails = {
+            promptTokens: metadata.promptTokenCount || 0,
+            outputTokens: metadata.candidatesTokenCount || 0,
+            cachedTokens: metadata.cachedContentTokenCount || 0,
+          };
+          structuredLog('info', 'Geracao Gemini concluida', {
+            endpoint: 'analisar-ia',
+            attempt: tentativa + 1,
+            usage: usageDetails,
+          });
+          break;
+        } else {
+          throw new Error('Gemini retornou resposta vazia.');
         }
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        structuredLog('warn', 'Falha ao requisitar Gemini', {
+          endpoint: 'analisar-ia',
+          attempt: tentativa + 1,
+          error: errMsg,
+        });
+        if (tentativa === 1) {
+          void logAiUsage(env?.BIGDATA_DB, {
+            module: 'oraculo-analisar-ia',
+            model: modelName,
+            input_tokens: 0,
+            output_tokens: 0,
+            latency_ms: Date.now() - _telStart,
+            status: 'error',
+            error_detail: errMsg.slice(0, 200),
+          });
+          return jsonResponse({ ok: false, error: `Falha na requisição AI Gemini: ${errMsg}` }, 500);
+        }
+        await new Promise((r) => setTimeout(r, 800));
+      }
+    }
+
+    if (!rawText) {
+      structuredLog('error', 'Gemini retornou vazio apos retentativas', { endpoint: 'analisar-ia' });
+      void logAiUsage(env?.BIGDATA_DB, {
+        module: 'oraculo-analisar-ia',
+        model: modelName,
+        input_tokens: 0,
+        output_tokens: 0,
+        latency_ms: Date.now() - _telStart,
+        status: 'error',
+        error_detail: 'Empty response after retries',
       });
-      
-      if (response.text) {
-        rawText = response.text;
-        const metadata = response.usageMetadata || {};
-        usageDetails = {
-           promptTokens: metadata.promptTokenCount || 0,
-           outputTokens: metadata.candidatesTokenCount || 0,
-           cachedTokens: metadata.cachedContentTokenCount || 0
-        };
-        structuredLog('info', 'Geracao Gemini concluida', { endpoint: 'analisar-ia', attempt: tentativa + 1, usage: usageDetails });
-        break;
-      } else {
-        throw new Error('Gemini retornou resposta vazia.');
-      }
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      structuredLog('warn', 'Falha ao requisitar Gemini', { endpoint: 'analisar-ia', attempt: tentativa + 1, error: errMsg });
-      if (tentativa === 1) {
-        void logAiUsage(env?.BIGDATA_DB, { module: 'oraculo-analisar-ia', model: modelName, input_tokens: 0, output_tokens: 0, latency_ms: Date.now() - _telStart, status: 'error', error_detail: errMsg.slice(0, 200) });
-        return jsonResponse(
-          { ok: false, error: `Falha na requisição AI Gemini: ${errMsg}` },
-          500
-        );
-      }
-      await new Promise(r => setTimeout(r, 800));
+      return jsonResponse({ ok: false, error: 'Gemini retornou resposta vazia.' }, 500);
     }
-  }
 
-  if (!rawText) {
-    structuredLog('error', 'Gemini retornou vazio apos retentativas', { endpoint: 'analisar-ia' });
-    void logAiUsage(env?.BIGDATA_DB, { module: 'oraculo-analisar-ia', model: modelName, input_tokens: 0, output_tokens: 0, latency_ms: Date.now() - _telStart, status: 'error', error_detail: 'Empty response after retries' });
-    return jsonResponse({ ok: false, error: 'Gemini retornou resposta vazia.' }, 500);
-  }
+    // Telemetria de sucesso
+    void logAiUsage(env?.BIGDATA_DB, {
+      module: 'oraculo-analisar-ia',
+      model: modelName,
+      input_tokens: (usageDetails as { promptTokens?: number }).promptTokens || 0,
+      output_tokens: (usageDetails as { outputTokens?: number }).outputTokens || 0,
+      latency_ms: Date.now() - _telStart,
+      status: 'ok',
+    });
 
-  // Telemetria de sucesso
-  void logAiUsage(env?.BIGDATA_DB, {
-    module: 'oraculo-analisar-ia', model: modelName,
-    input_tokens: (usageDetails as { promptTokens?: number }).promptTokens || 0,
-    output_tokens: (usageDetails as { outputTokens?: number }).outputTokens || 0,
-    latency_ms: Date.now() - _telStart, status: 'ok'
-  });
+    // Parse do JSON estruturado retornado pelo modelo
+    let analise: AnaliseIA;
+    try {
+      analise = JSON.parse(rawText) as AnaliseIA;
+    } catch {
+      return jsonResponse(
+        { ok: false, error: 'Resposta do Gemini não é JSON válido.', raw: rawText.slice(0, 500) },
+        500,
+      );
+    }
 
-  // Parse do JSON estruturado retornado pelo modelo
-  let analise: AnaliseIA
-  try {
-    analise = JSON.parse(rawText) as AnaliseIA
-  } catch {
-    return jsonResponse({ ok: false, error: 'Resposta do Gemini não é JSON válido.', raw: rawText.slice(0, 500) }, 500)
-  }
-
-  // Persiste no D1 para auditoria histórica
-  try {
-    const db = env?.BIGDATA_DB
-    if (db && typeof db.prepare === 'function') {
-      const risco = analise.avaliacao === 'ruim' ? 'alto' : analise.avaliacao === 'regular' ? 'medio' : 'baixo'
-      await db.prepare(
-        `INSERT INTO oraculo_auditorias_ia (id, created_at, observacao, risco, recomendacao)
+    // Persiste no D1 para auditoria histórica
+    try {
+      const db = env?.BIGDATA_DB;
+      if (db && typeof db.prepare === 'function') {
+        const risco = analise.avaliacao === 'ruim' ? 'alto' : analise.avaliacao === 'regular' ? 'medio' : 'baixo';
+        await db
+          .prepare(
+            `INSERT INTO oraculo_auditorias_ia (id, created_at, observacao, risco, recomendacao)
          VALUES (?1, ?2, ?3, ?4, ?5)`,
-      )
-        .bind(
-          crypto.randomUUID(),
-          new Date().toISOString(),
-          `[${payload.tipo}] ${analise.titulo} — ${analise.resumo}`,
-          risco,
-          analise.recomendacao,
-        )
-        .run()
+          )
+          .bind(
+            crypto.randomUUID(),
+            new Date().toISOString(),
+            `[${payload.tipo}] ${analise.titulo} — ${analise.resumo}`,
+            risco,
+            analise.recomendacao,
+          )
+          .run();
+      }
+    } catch {
+      // Persitência no D1 é secundária — não bloqueia a resposta ao client
     }
-  } catch {
-    // Persitência no D1 é secundária — não bloqueia a resposta ao client
-  }
 
-    return jsonResponse({ ok: true, analise })
+    return jsonResponse({ ok: true, analise });
   } catch (error) {
-    console.error('analisar-ia:onRequestPost', error)
-    return jsonResponse({ ok: false, error: 'Erro interno.' }, 500)
+    console.error('analisar-ia:onRequestPost', error);
+    return jsonResponse({ ok: false, error: 'Erro interno.' }, 500);
   }
-}
+};

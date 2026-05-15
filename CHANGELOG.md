@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+## [v01.10.07] - 2026-05-15
+
+**Patch — 4-gate quality directive compliance (eslint + biome + prettier + cross-review).** Workspace directive 2026-05-15: every code change must pass eslint + biome + prettier + cross-review before Commit & Sync / tag / release / deploy / publish.
+
+### Adicionado
+
+- `npm run biome` + `npm run biome:write` scripts.
+- `deploy.yml` runs `npm run lint` (eslint) + `npm run biome` after `npm ci` and before `npm run build`.
+
+### Configurado
+
+- `biome.json` schema URL `2.4.11` → `2.4.14`.
+- `biome.json` `files.includes` scopes biome para `src/` + `functions/`; exclui `dist/`, `build/`, `.wrangler/`, `node_modules/`, `coverage/`, CSS, `wrangler.json`.
+- Rule overrides para React+Tailwind patterns: `suspicious.{noArrayIndexKey,noImplicitAnyLet}`, `correctness.useExhaustiveDependencies`, `style.noNonNullAssertion`, `a11y.{useKeyWithClickEvents,useButtonType,noStaticElementInteractions,useAriaPropsSupportedByRole}`, `security.noDangerouslySetInnerHtml` — all off.
+
+### Alterado
+
+- Multiple source files reformatted by `biome check --write .` + `--unsafe` (useLiteralKeys, useTemplate, noGlobalIsNan, useOptionalChain). Cosmetic only.
+- `src/components/Notification.tsx:69`: forEach arrow-shorthand convertido para block body para satisfazer `useIterableCallbackReturn`.
+
 ## [v01.10.06] - 2026-05-13
 ### Corrigido
 - **npm registry split para StepSecurity** — scripts operacionais de Wrangler (`d1:setup`, `d1:migrate`) agora forçam `https://registry.npmjs.org/` via `npx --registry`, preservando o proxy StepSecurity apenas para instalação/atualização de dependências. Isso evita que a configuração `.npmrc` de instalação interfira em comandos operacionais do npm/npx.
