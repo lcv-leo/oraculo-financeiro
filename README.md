@@ -20,7 +20,7 @@ The version history at a glance:
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`v01.10.05`** | **Site sponsor card iteration.** `site/index.html` GitHub Sponsors iframe (caixa branca cross-origin) substituído por link card dark navy com ❤ pink + meta cyan + seta animada; card movido para DEPOIS dos botões (lcv.dev/sponsor primário, GitHub Sponsors alternativa). Companion ship Phase 3 (12 repos).                                                   |
 | **`v01.10.04`** | **Site visual identity refresh.** `site/index.html` (GitHub Pages) reskinneada para a nova identidade dark-first navy/cyan da org LCV (`#050b18`/`#38bdf8`/`#34d399`, gradientes radiais, glow shadows, gradient text no h1). Coordinated Phase 2 companion ship (calculadora, oraculo, astrologo, admin, mainsite, maestro, mtasts). Sem mudança no app runtime. |
-| **`v01.10.03`** | **README organizational standardization.** Adopted the shared repository README opening pattern, corrected public release and clone links to the organization, surfaced the top-level version-history table, and kept the GitHub Sponsors link on `lcv-leo` by explicit beneficiary decision.                                                                     |
+| **`v01.10.03`** | **README organizational standardization.** Adopted the shared repository README opening pattern, corrected public release and clone links to the organization, surfaced the top-level version-history table, and kept the GitHub Sponsors link on `example-beneficiary` by explicit beneficiary decision.                                                                     |
 | **`v01.10.02`** | **Pages modernization.** Migrated fully to the current GitHub Pages artifact-deployment model and enabled idempotent Pages setup for fresh clones/forks.                                                                                                                                                                                                          |
 | **`v01.10.01`** | **Public flip prep.** Finalized repo-publication hygiene, D1 placeholder injection, Cron trigger versioning, bootstrap consistency, and parser-based HTML sanitization.                                                                                                                                                                                           |
 | **`v01.10.00`** | **Critical runtime fixes.** Fixed same-origin GET origin handling, stabilized JSON error responses in auth handlers, and improved public endpoint resilience.                                                                                                                                                                                                     |
@@ -85,7 +85,7 @@ npm ci
 ### 2. Create your D1 database
 
 ```bash
-npx wrangler d1 create bigdata_db
+npx wrangler d1 create example_db
 # wrangler outputs:
 #   database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 ```
@@ -102,7 +102,7 @@ Replace the placeholder `00000000-0000-0000-0000-000000000000` in:
   "d1_databases": [
     {
       "binding": "BIGDATA_DB",
-      "database_name": "bigdata_db",
+      "database_name": "example_db",
       "database_id": "<your-d1-id-from-step-2>",
     },
   ],
@@ -114,8 +114,8 @@ There is also a helper script `npm run d1:setup` that automates wrangler.json mu
 ### 4. Apply schema
 
 ```bash
-npx wrangler d1 execute bigdata_db --remote --file db/001_init.sql
-npx wrangler d1 execute bigdata_db --remote --file db/002_tesouro_ipca_lotes.sql
+npx wrangler d1 execute example_db --remote --file db/001_init.sql
+npx wrangler d1 execute example_db --remote --file db/002_tesouro_ipca_lotes.sql
 ```
 
 Or run `npm run d1:setup` which wraps both.
@@ -152,7 +152,7 @@ This repo's [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) runs 
 
 ## License
 
-Copyright (C) 2026 Leonardo Cardozo Vargas.
+Copyright (C) 2026 LCV Ideas & Software
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 

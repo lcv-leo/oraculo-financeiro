@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 Leonardo Cardozo Vargas
+ * Copyright (C) 2026 LCV Ideas & Software
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import type React from 'react';
@@ -34,7 +34,7 @@ export const ComplianceBanner: React.FC<ComplianceBannerProps> = ({ onViewLicens
       }}
       aria-label="Rodapé de conformidade de licenciamento"
     >
-      <span>Copyright © 2026 Leonardo Cardozo Vargas</span>
+      <span>Copyright © 2026 LCV Ideas & Software</span>
       <span aria-hidden="true">|</span>
       <a
         href="/licencas"
@@ -48,7 +48,7 @@ export const ComplianceBanner: React.FC<ComplianceBannerProps> = ({ onViewLicens
       </a>
       <span aria-hidden="true">|</span>
       <a
-        href="https://github.com/lcv-leo/oraculo-financeiro"
+        href="https://github.com/LCV-Ideas-Software/oraculo-financeiro"
         target="_blank"
         rel="noopener noreferrer"
         style={linkStyle}

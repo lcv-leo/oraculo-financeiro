@@ -37,7 +37,7 @@
 
 ## [v01.10.03] - 2026-04-30
 ### Alterado
-- `README.md` passou a seguir o novo padrão organizacional de abertura: logo harmonizado, bloco curto de status, tabela `The version history at a glance`, links públicos de release/clone corrigidos para `LCV-Ideas-Software/oraculo-financeiro` e manutenção explícita do GitHub Sponsors em `lcv-leo`.
+- `README.md` passou a seguir o novo padrão organizacional de abertura: logo harmonizado, bloco curto de status, tabela `The version history at a glance`, links públicos de release/clone corrigidos para `LCV-Ideas-Software/oraculo-financeiro` e manutenção explícita do GitHub Sponsors em `example-beneficiary`.
 
 ## [v01.10.02] - 2026-04-26
 ### Alterado
@@ -51,7 +51,7 @@
 - **Repo público**: README reescrito como documentação fork-friendly; AGPL-3.0-or-later confirmada (LICENSE + frontmatter); FUNDING.yml + Sponsorship habilitada; rulesets do GitHub aplicados (10 itens do baseline de hardening).
 - **D1 placeholder**: `wrangler.json` (Pages) e `workers/taxaipca-motor/wrangler.json` (Cron Worker) passaram a usar `database_id` nil-UUID (`00000000-0000-0000-0000-000000000000`); o ID real é injetado em deploy via secret `D1_DATABASE_ID` no GitHub Actions com substituição `jq` em ambos os arquivos.
 - **Cron Trigger versionado**: `workers/taxaipca-motor/wrangler.json` agora declara `triggers.crons: ["0 5 * * *"]` (02h BRT / 05h UTC, alinhado com a documentação do README).
-- **Bootstrap consistente**: `scripts/setup-d1.ps1` e `package.json` (`d1:migrate`) passaram a usar `bigdata_db` + binding `BIGDATA_DB`, em paridade com `wrangler.json` e o restante do workspace; o setup script agora valida ambos os `wrangler.json` (root + worker).
+- **Bootstrap consistente**: `scripts/setup-d1.ps1` e `package.json` (`d1:migrate`) passaram a usar `example_db` + binding `BIGDATA_DB`, em paridade com `wrangler.json` e o restante do workspace; o setup script agora valida ambos os `wrangler.json` (root + worker).
 - **Sanitização HTML parser-based**: `enviar-email.ts` migrou de regex para `sanitize-html` (allowlist de tags/atributos); `THIRDPARTY.md` atualizado.
 - **Histórico Git**: residuals de prefixos internos (memória/sessão) e fragmentos de UUID anteriores foram limpos do histórico via `git filter-repo` antes do flip público.
 
@@ -359,10 +359,10 @@
 - **Redesign UI/UX Completo**: transição de glassmorphisms pesados para a filosofia sólida `Tiptap.dev` (Google Blue, Pill buttons, Solid Cards 30px radius, fonte Inter).
 - **Adequação WCAG/eMAG**: inputs validados para id/name e autocomplete.
 - **Migração de Frontend para Admin**: as tabelas de histórico persistente foram deletadas do frontend (`App.tsx`), delegando a leitura e exclusão para a matriz do Admin-app.
-- Migração de D1 para `bigdata_db` com prefixação de tabelas (`oraculo_lci_cdb_registros`, `oraculo_auditorias_ia`, `oraculo_tesouro_ipca_lotes`)
+- Migração de D1 para `example_db` com prefixação de tabelas (`oraculo_lci_cdb_registros`, `oraculo_auditorias_ia`, `oraculo_tesouro_ipca_lotes`)
 
 ### Infra
-- `wrangler.json` atualizado para `bigdata_db` (binding `BIGDATA_DB`)
+- `wrangler.json` atualizado para `example_db` (binding `BIGDATA_DB`)
 - Versionamento consolidado para `APP v01.02.00` + `package.json` 1.2.0
 
 ## [v01.01.00] — 2026-03-22
