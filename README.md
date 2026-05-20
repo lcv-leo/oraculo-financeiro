@@ -143,30 +143,23 @@ This repo's [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) runs 
 
 ## Repository conventions
 
-- **License**: [AGPL-3.0-or-later](./LICENSE). Network-service trigger applies — running a modified fork as a public service obligates you to publish modifications. See AGPL §13 source-offer below.
+- **License**: [AGPL-3.0-or-later](./LICENSE). Network-service trigger applies: running a modified fork as a public service obligates you to publish modifications.
 - **Security disclosure**: see [SECURITY.md](./SECURITY.md).
 - **Changelog**: [CHANGELOG.md](./CHANGELOG.md).
 - **Sponsorship**: see the repo's `Sponsor` button or [central sponsor page](https://www.lcv.dev/sponsor).
 - **Action pinning**: all GitHub Actions are pinned by full SHA per supply-chain hardening baseline.
 - **Code owners**: [.github/CODEOWNERS](./.github/CODEOWNERS).
 
+## Links
+
+- Site: [https://oraculo-financeiro-app.lcv.dev](https://oraculo-financeiro-app.lcv.dev)
+- GitHub: [https://github.com/LCV-Ideas-Software/oraculo-financeiro](https://github.com/LCV-Ideas-Software/oraculo-financeiro)
+- Sponsors: [https://github.com/sponsors/LCV-Ideas-Software](https://github.com/sponsors/LCV-Ideas-Software)
+
 ## License
 
-Copyright (C) 2026 LCV Ideas & Software
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY. See the GNU Affero General Public License for more details. The full license text is at [LICENSE](./LICENSE).
-
-### AGPL §13 source-offer (operators of public deployments)
-
-If you operate a modified copy of this app as a publicly-accessible network service, AGPL-3.0 §13 obligates you to make the corresponding source code available to your remote users. Comply via:
-
-- A "Source" link in the app's footer pointing to your fork's repository URL.
-- A `GET /source` route in `functions/api/` returning your fork's URL as `text/plain`.
-
-If you only deploy this app for your own infrastructure (no external users), §13 does not apply.
+AGPL-3.0-or-later. See [LICENSE](./LICENSE), [NOTICE](./NOTICE), and [THIRDPARTY](./THIRDPARTY.md).
 
 ---
 
-<p align="center"><span style="font-size: 1.5em;"><strong>© LCV Ideas &amp; Software</strong></span><br><sub>LEONARDO CARDOZO VARGAS TECNOLOGIA DA INFORMACAO LTDA<br>Rua Pais Leme, 215 Conj 1713&nbsp;&nbsp;- Pinheiros<br>São Paulo - SP<br>CEP 05.424-150<br>CNPJ: 66.584.678/0001-77<br>IM 05.424-150</sub></p>
+<p align="center"><span style="font-size: 1.5em;"><strong>© LCV Ideas &amp; Software</strong></span><br><sub>LEONARDO CARDOZO VARGAS TECNOLOGIA DA INFORMACAO LTDA<br>Rua Pais Leme, 215 Conj 1713 - Pinheiros<br>São Paulo - SP<br>CEP 05.424-150<br>CNPJ: 66.584.678/0001-77<br>IM 05.424-150</sub></p>
