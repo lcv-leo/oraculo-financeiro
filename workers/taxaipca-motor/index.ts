@@ -59,7 +59,7 @@ function parseCSV(csvText: string): { titulos: TituloTD[]; totalLines: number } 
   let latestDateKey = ''
   let latestDateBR = ''
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(';')
+    const cols = (lines[i] ?? '').split(';')
     if (cols.length < 5) continue
     const dataBase = cols[2]?.trim() ?? ''
     if (!dataBase || !dataBase.includes('/')) continue
@@ -75,10 +75,10 @@ function parseCSV(csvText: string): { titulos: TituloTD[]; totalLines: number } 
   // Passo 2: coletar somente IPCA+ na data mais recente
   const results: TituloTD[] = []
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(';')
+    const cols = (lines[i] ?? '').split(';')
     if (cols.length < 5) continue
 
-    const tipoTitulo = cols[0].trim()
+    const tipoTitulo = (cols[0] ?? '').trim()
     const dataVencimento = cols[1]?.trim() ?? ''
     const dataBase = cols[2]?.trim() ?? ''
     const taxaCompra = parseFloat((cols[3] ?? '0').replace(',', '.'))
@@ -139,7 +139,12 @@ async function processarCSV(db: Env['BIGDATA_DB'], origem: string): Promise<stri
     ? Math.round(taxasValidas.reduce((sum, t) => sum + t.taxaCompra, 0) / taxasValidas.length * 100) / 100
     : 0
 
-  const dataRef = titulos[0].dataBase
+  const primeiroTitulo = titulos[0]
+  if (!primeiroTitulo) {
+    throw new Error('Nenhum título IPCA+ encontrado no CSV')
+  }
+
+  const dataRef = primeiroTitulo.dataBase
   const vencimentosJson = JSON.stringify(titulos)
   const agora = new Date().toISOString()
 

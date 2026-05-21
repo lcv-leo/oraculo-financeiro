@@ -1,12 +1,11 @@
-export interface D1Prepared {
-  bind: (...args: unknown[]) => {
-    run: () => Promise<unknown>;
-    all?: () => Promise<unknown>;
-    first?: <T = Record<string, unknown>>() => Promise<T | null>;
-  };
+export interface D1BoundStatement {
   run: () => Promise<unknown>;
-  all?: () => Promise<unknown>;
-  first?: <T = Record<string, unknown>>() => Promise<T | null>;
+  all: () => Promise<unknown>;
+  first: <T = Record<string, unknown>>() => Promise<T | null>;
+}
+
+export interface D1Prepared extends D1BoundStatement {
+  bind: (...args: unknown[]) => D1BoundStatement;
 }
 
 export interface D1DatabaseLike {

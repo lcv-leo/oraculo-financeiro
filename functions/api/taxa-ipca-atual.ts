@@ -64,7 +64,7 @@ function parseCSV(csvText: string): TituloTD[] {
   let latestDateKey = '';
   let latestDateBR = '';
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(';');
+    const cols = (lines[i] ?? '').split(';');
     if (cols.length < 5) continue;
     const dataBase = cols[2]?.trim() ?? '';
     if (!dataBase?.includes('/')) continue;
@@ -80,10 +80,10 @@ function parseCSV(csvText: string): TituloTD[] {
   // Passo 2: coletar IPCA+ Principal na data mais recente
   const results: TituloTD[] = [];
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(';');
+    const cols = (lines[i] ?? '').split(';');
     if (cols.length < 5) continue;
 
-    const tipoTitulo = cols[0].trim();
+    const tipoTitulo = (cols[0] ?? '').trim();
     const dataVencimento = cols[1]?.trim() ?? '';
     const dataBase = cols[2]?.trim() ?? '';
     const taxaCompra = parseFloat((cols[3] ?? '0').replace(',', '.'));
@@ -197,7 +197,12 @@ export const onRequestGet = async ({ env, request }: Context) => {
         ? Math.round((taxasValidas.reduce((sum, t) => sum + t.taxaCompra, 0) / taxasValidas.length) * 100) / 100
         : 0;
 
-    const dataRef = titulos[0].dataBase;
+    const primeiroTitulo = titulos[0];
+    if (!primeiroTitulo) {
+      return jsonResponse({ ok: false, error: 'Nenhum título IPCA+ encontrado no CSV.' }, 404);
+    }
+
+    const dataRef = primeiroTitulo.dataBase;
     const vencimentosJson = JSON.stringify(titulos);
 
     await db

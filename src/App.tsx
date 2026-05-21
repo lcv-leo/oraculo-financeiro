@@ -305,8 +305,9 @@ function App() {
             }));
             const sorted = mapped.sort((a, b) => toKey(a.vencimento).localeCompare(toKey(b.vencimento)));
             setTitulosIpca(sorted);
-            if (sorted.length > 0) {
-              setNovoLoteVencimento(sorted[0].vencimento);
+            const primeiroTitulo = sorted[0];
+            if (primeiroTitulo) {
+              setNovoLoteVencimento(primeiroTitulo.vencimento);
             }
           }
           showNotification(
@@ -1123,7 +1124,12 @@ function App() {
         const reader = new FileReader();
         reader.onload = () => {
           const result = reader.result as string;
-          resolve(result.split(',')[1]);
+          const [, data] = result.split(',');
+          if (!data) {
+            reject(new Error('Falha ao ler o conteúdo do arquivo'));
+            return;
+          }
+          resolve(data);
         };
         reader.onerror = () => reject(new Error('Falha ao ler o arquivo'));
         reader.readAsDataURL(file);
@@ -1182,9 +1188,11 @@ function App() {
 
       // Preencher formulário com o último lote para referência visual
       const ultimo = payload.data[payload.data.length - 1];
-      setNovoLoteDataCompra(ultimo.dataCompra);
-      setNovoLoteValor(ultimo.valorInvestido);
-      setNovoLoteTaxa(ultimo.taxaContratada);
+      if (ultimo) {
+        setNovoLoteDataCompra(ultimo.dataCompra);
+        setNovoLoteValor(ultimo.valorInvestido);
+        setNovoLoteTaxa(ultimo.taxaContratada);
+      }
 
       if (novosRegistros.length > 0) {
         showNotification(
@@ -1211,6 +1219,7 @@ function App() {
     if (activeTab !== 'tesouro-ipca') return;
 
     const file = e.dataTransfer.files[0];
+    if (!file) return;
     void handleProcessFile(file);
   };
 

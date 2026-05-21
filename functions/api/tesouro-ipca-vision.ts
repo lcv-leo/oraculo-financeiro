@@ -4,16 +4,9 @@
 // Alinhado ao padrão do analisar-ia.ts: retry, thought filtering, jsonResponse, safety BLOCK_ONLY_HIGH.
 
 import { GoogleGenAI } from '@google/genai';
-import { enforceRateLimit, jsonResponse, requireAllowedOrigin } from './_shared/security';
+import { type D1DatabaseLike, enforceRateLimit, jsonResponse, requireAllowedOrigin } from './_shared/security';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
-
-interface D1DatabaseLike {
-  prepare: (query: string) => {
-    bind(...args: unknown[]): { run: () => Promise<unknown> };
-    all: () => Promise<unknown>;
-  };
-}
 
 interface Env {
   GEMINI_API_KEY: string;

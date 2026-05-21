@@ -3,20 +3,9 @@
 // Descrição: Upgrade Gemini API — modelo gemini-3.1-pro-preview (auto-atualiza), v1beta, thinkingLevel HIGH, safetySettings (BLOCK_NONE para conteúdo financeiro), retry com 1 tentativa extra. Prompt fiduciário preservado.
 
 import { GoogleGenAI } from '@google/genai';
-import { enforceRateLimit, jsonResponse, requireAllowedOrigin } from './_shared/security';
+import { type D1DatabaseLike, enforceRateLimit, jsonResponse, requireAllowedOrigin } from './_shared/security';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
-
-type D1Result<T = unknown> = { results?: T[] };
-
-interface D1Prepared {
-  bind: (...args: unknown[]) => { run: () => Promise<unknown> };
-  all: () => Promise<D1Result>;
-}
-
-interface D1DatabaseLike {
-  prepare: (query: string) => D1Prepared;
-}
 
 interface Env {
   BIGDATA_DB: D1DatabaseLike;
