@@ -90,7 +90,6 @@
 ### Motivação
 - Padronizar logs de invocação e traces do Cloudflare no `oraculo-financeiro` e no worker `taxaipca-motor`.
 
-
 ## [v01.09.02] - 2026-04-17
 ### Alterado
 - **Auth e origem fail-closed**: `oraculo-auth.ts`, `contato.ts`, `enviar-email.ts`, `analisar-ia.ts`, `tesouro-ipca-vision.ts` e `taxa-ipca-atual.ts` passaram a exigir origem `https://*.lcv.app.br`, aplicar rate limiting real e endurecer respostas sensíveis.
@@ -124,7 +123,7 @@
 - **vite**: 8.0.7 → 8.0.8
 - **vitest**: 4.1.2 → 4.1.4
 - **lucide-react**: 1.7.0 → 1.8.0
-- **Dependabot groups**: @vitest/* e @biomejs/* adicionados
+- **Dependabot groups**: @vitest/*e @biomejs/* adicionados
 
 ## [v01.08.11] - 2026-04-08
 ### Atualização Tecnológica
@@ -158,7 +157,7 @@
 
 ## [v01.08.07] - 2026-04-04
 ### Resolvido
-- **Modernização GenAI**: As APIs nalisar-ia.ts e 	esouro-ipca-vision.ts implementam as totais capacidades das '10 features' (structuredLog, contagem de tokens pré/pós e metadados de cobrança).
+- **Modernização GenAI**: As APIs nalisar-ia.ts e  esouro-ipca-vision.ts implementam as totais capacidades das '10 features' (structuredLog, contagem de tokens pré/pós e metadados de cobrança).
 - **Direto ao Google**: Removidos resquícios do Cloudflare Gateway proxy mitigando timeout 524 fantasma na resolução do IPCA Vision.
 - **Cloudflare Environment**: Sincronização do binding `RESEND_API_KEY` mapeado ativamente ao Secrets Store nativo.
 
@@ -168,7 +167,7 @@
 
 ## [v01.08.07] - 2026-04-04
 ### Resolvido
-- **Modernização GenAI**: As APIs nalisar-ia.ts e 	esouro-ipca-vision.ts implementam as totais capacidades das '10 features' (structuredLog, contagem de tokens pré/pós e metadados de cobrança).
+- **Modernização GenAI**: As APIs nalisar-ia.ts e  esouro-ipca-vision.ts implementam as totais capacidades das '10 features' (structuredLog, contagem de tokens pré/pós e metadados de cobrança).
 - **Direto ao Google**: Removidos resquícios do Cloudflare Gateway proxy mitigando timeout 524 fantasma na resolução do IPCA Vision.
 - **Cloudflare Environment**: Sincronização do binding `RESEND_API_KEY` mapeado ativamente ao Secrets Store nativo.
 
@@ -181,7 +180,7 @@
 
 ## [v01.08.07] - 2026-04-04
 ### Resolvido
-- **Modernização GenAI**: As APIs nalisar-ia.ts e 	esouro-ipca-vision.ts implementam as totais capacidades das '10 features' (structuredLog, contagem de tokens pré/pós e metadados de cobrança).
+- **Modernização GenAI**: As APIs nalisar-ia.ts e  esouro-ipca-vision.ts implementam as totais capacidades das '10 features' (structuredLog, contagem de tokens pré/pós e metadados de cobrança).
 - **Direto ao Google**: Removidos resquícios do Cloudflare Gateway proxy mitigando timeout 524 fantasma na resolução do IPCA Vision.
 - **Cloudflare Environment**: Sincronização do binding `RESEND_API_KEY` mapeado ativamente ao Secrets Store nativo.
 
@@ -194,7 +193,7 @@
 
 ## [v01.08.07] - 2026-04-04
 ### Resolvido
-- **Modernização GenAI**: As APIs nalisar-ia.ts e 	esouro-ipca-vision.ts implementam as totais capacidades das '10 features' (structuredLog, contagem de tokens pré/pós e metadados de cobrança).
+- **Modernização GenAI**: As APIs nalisar-ia.ts e  esouro-ipca-vision.ts implementam as totais capacidades das '10 features' (structuredLog, contagem de tokens pré/pós e metadados de cobrança).
 - **Direto ao Google**: Removidos resquícios do Cloudflare Gateway proxy mitigando timeout 524 fantasma na resolução do IPCA Vision.
 - **Cloudflare Environment**: Sincronização do binding `RESEND_API_KEY` mapeado ativamente ao Secrets Store nativo.
 
@@ -207,7 +206,7 @@
 
 ## [v01.08.07] - 2026-04-04
 ### Resolvido
-- **Modernização GenAI**: As APIs nalisar-ia.ts e 	esouro-ipca-vision.ts implementam as totais capacidades das '10 features' (structuredLog, contagem de tokens pré/pós e metadados de cobrança).
+- **Modernização GenAI**: As APIs nalisar-ia.ts e  esouro-ipca-vision.ts implementam as totais capacidades das '10 features' (structuredLog, contagem de tokens pré/pós e metadados de cobrança).
 - **Direto ao Google**: Removidos resquícios do Cloudflare Gateway proxy mitigando timeout 524 fantasma na resolução do IPCA Vision.
 - **Cloudflare Environment**: Sincronização do binding `RESEND_API_KEY` mapeado ativamente ao Secrets Store nativo.
 
